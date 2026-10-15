@@ -731,19 +731,27 @@ input[type='range'] {
 
   .control-cluster {
     justify-content: space-between;
+    width: 100%;
+    min-width: 0;
   }
 
   .field {
     flex: 1;
+    /* Allow the field (and the widget it wraps) to shrink below its content's
+       min-content width, so long option labels can never force a horizontal
+       scroll on narrow viewports regardless of the resolved mono font. */
+    min-width: 0;
   }
 
   select {
     max-width: none;
     flex: 1;
+    min-width: 0;
   }
 
   input[type='number'] {
     width: 100%;
+    min-width: 0;
   }
 
   .race-grid {
