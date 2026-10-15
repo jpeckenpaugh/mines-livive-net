@@ -61,6 +61,28 @@
           >
             RACE
           </button>
+          <button
+            id="tab-concurrent"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-concurrent"
+            tabindex="-1"
+            data-mode="concurrent"
+          >
+            CONCURRENT
+          </button>
+          <button
+            id="tab-models"
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-models"
+            tabindex="-1"
+            data-mode="models"
+          >
+            MODELS
+          </button>
         </div>
 
         <span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
@@ -224,6 +246,78 @@
             <button id="race-reset" class="btn" type="button">RESET</button>
           </div>
           <div id="race-result" class="race-result" aria-live="polite"></div>
+        </section>
+
+        <!-- ========================== CONCURRENT ======================== -->
+        <section
+          class="panel concurrent"
+          id="panel-concurrent"
+          role="tabpanel"
+          aria-labelledby="tab-concurrent"
+          data-panel="concurrent"
+          hidden
+        >
+          <div class="scoreboard">
+            <div class="score-total">
+              <span class="score-k">TOTAL POINTS</span>
+              <span id="concurrent-total" class="score-value">0</span>
+            </div>
+            <div class="score-counts" role="group" aria-label="Outcome counts">
+              <div class="score-count" data-kind="cleared">
+                <span id="concurrent-cleared" class="score-n">0</span>
+                <span class="score-k">CLEARED</span>
+              </div>
+              <div class="score-count" data-kind="detonated">
+                <span id="concurrent-detonated" class="score-n">0</span>
+                <span class="score-k">DETONATED</span>
+              </div>
+              <div class="score-count" data-kind="stuck">
+                <span id="concurrent-stuck" class="score-n">0</span>
+                <span class="score-k">STUCK</span>
+              </div>
+            </div>
+            <div class="concurrent-controls">
+              <button id="concurrent-start" class="btn wide" type="button">START</button>
+              <button id="concurrent-reset" class="btn" type="button">RESET</button>
+              <label class="field range" for="concurrent-speed">
+                <span class="field-label">SPEED</span>
+                <input id="concurrent-speed" type="range" min="100" max="1000" step="50" value="950" />
+              </label>
+            </div>
+          </div>
+
+          <p class="concurrent-hint">
+            Every checkpoint plays the identical board (<code>?seed=</code>) in lockstep.
+            <span class="legend-cleared">cleared</span> ·
+            <span class="legend-detonated">detonated</span> ·
+            <span class="legend-stuck">stuck</span>
+          </p>
+
+          <div id="concurrent-grid" class="concurrent-grid"></div>
+
+          <div class="leaderboard">
+            <h2 class="panel-title">LEADERBOARD</h2>
+            <ol id="concurrent-leaderboard" class="leader-list"></ol>
+          </div>
+          <p id="concurrent-live" class="sr-only" role="status" aria-live="polite"></p>
+        </section>
+
+        <!-- ============================ MODELS ========================== -->
+        <section
+          class="panel models"
+          id="panel-models"
+          role="tabpanel"
+          aria-labelledby="tab-models"
+          data-panel="models"
+          hidden
+        >
+          <h2 class="panel-title">MODEL CHECKPOINTS</h2>
+          <p class="models-intro">
+            Every ONNX policy in the manifest: how it was made, how it differs, its
+            architecture and training config, file size, and its fixed-seed evaluation.
+          </p>
+          <div id="models-list" class="models-list" role="list"></div>
+          <p id="models-note" class="hint" role="status"></p>
         </section>
       </main>
 

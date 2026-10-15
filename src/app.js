@@ -484,6 +484,489 @@ function renderRace() {
   maybeFinishRace();
 }
 
+/* =========================================================== SCORING ===== */
+
+/**
+ * Frozen scoring (POC v2 plan). `manifest.scoring` when present, else the
+ * documented default. Detonation and stuck both end a run with points so far.
+ */
+function scoringConfig() {
+  const s = (state.contract && state.contract.manifest && state.contract.manifest.scoring) || {};
+  return {
+    safe: Number.isFinite(s.safe_reveal_points) ? s.safe_reveal_points : 1,
+    bonus: Number.isFinite(s.win_bonus) ? s.win_bonus : 50,
+  };
+}
+
+/**
+ * `Game.revealedCount` counts only safely revealed cells (the detonated mine is
+ * marked revealed but never counted), so it is exactly `safe_cells_revealed`.
+ */
+function pointsFor(game) {
+  const { safe, bonus } = scoringConfig();
+  return game.revealedCount * safe + (game.status === 'won' ? bonus : 0);
+}
+
+function listCheckpoints() {
+  const m = (state.contract && state.contract.manifest) || {};
+  return Array.isArray(m.checkpoints) ? m.checkpoints : [];
+}
+
+/* ============================================================= MODELS ==== */
+
+function formatBytes(n) {
+  if (!Number.isFinite(n)) return '—';
+  if (n < 1024) return `${n} B`;
+  const kb = n / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  return `${(kb / 1024).toFixed(2)} MB`;
+}
+
+function formatArchitecture(a) {
+  if (!a || typeof a !== 'object') return '—';
+  const parts = [];
+  if (Number.isFinite(a.width)) parts.push(`width ${a.width}`);
+  if (Array.isArray(a.layers)) parts.push(`${a.layers.length} layers`);
+  else if (typeof a.layers === 'string') parts.push(a.layers);
+  if (Number.isFinite(a.params)) parts.push(`${a.params.toLocaleString()} params`);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
+function formatTraining(t) {
+  if (!t || typeof t !== 'object') return '—';
+  const parts = [];
+  if (Number.isFinite(t.games)) parts.push(`${t.games.toLocaleString()} games`);
+  if (Number.isFinite(t.epochs)) parts.push(`${t.epochs} epochs`);
+  if (Number.isFinite(t.lr)) parts.push(`lr ${t.lr}`);
+  if (t.target) parts.push(`target ${t.target}`);
+  return parts.length ? parts.join(' · ') : '—';
+}
+
+function formatEval(e) {
+  if (!e || typeof e !== 'object') return '—';
+  const pct = (v) => (Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : '—');
+  const num = (v) => (Number.isFinite(v) ? v.toFixed(1) : '—');
+  return `win ${pct(e.win_rate)} · mine-hit ${pct(e.mine_hit_rate)} · stuck ${pct(
+    e.stuck_rate,
+  )} · avg safe ${num(e.avg_safe_reveals)}`;
+}
+
+function modelCard(ckpt, active) {
+  const card = document.createElement('article');
+  card.className = 'model-card';
+  card.setAttribute('role', 'listitem');
+  if (active) card.setAttribute('aria-current', 'true');
+
+  const head = document.createElement('header');
+  head.className = 'model-head';
+  const id = document.createElement('span');
+  id.className = 'model-id';
+  id.textContent = ckpt.id;
+  const label = document.createElement('h3');
+  label.className = 'model-label';
+  label.textContent = ckpt.label || ckpt.id;
+  head.append(id, label);
+  if (ckpt.family) {
+    const fam = document.createElement('span');
+    fam.className = 'model-family';
+    fam.textContent = ckpt.family;
+    head.appendChild(fam);
+  }
+
+  const desc = document.createElement('p');
+  desc.className = 'model-desc';
+  desc.textContent = ckpt.description || '—';
+
+  const dl = document.createElement('dl');
+  dl.className = 'model-meta';
+  const rows = [
+    ['Family', ckpt.family || '—'],
+    ['Method', ckpt.method || '—'],
+    ['Architecture', formatArchitecture(ckpt.architecture)],
+    ['Training', formatTraining(ckpt.training)],
+    ['File size', formatBytes(ckpt.size_bytes)],
+    ['Eval', formatEval(ckpt.eval)],
+  ];
+  for (const [k, v] of rows) {
+    const row = document.createElement('div');
+    row.className = 'model-row';
+    const dt = document.createElement('dt');
+    dt.textContent = k;
+    const dd = document.createElement('dd');
+    dd.textContent = v;
+    row.append(dt, dd);
+    dl.appendChild(row);
+  }
+
+  card.append(head, desc, dl);
+  return card;
+}
+
+function renderModels() {
+  const host = $('models-list');
+  const list = listCheckpoints();
+  host.replaceChildren();
+  for (const ckpt of list) host.appendChild(modelCard(ckpt, ckpt.id === state.checkpointId));
+
+  const note = $('models-note');
+  if (!list.length) {
+    note.textContent = 'No checkpoints found in the manifest.';
+    return;
+  }
+  const manifest = state.contract ? state.contract.manifest : {};
+  note.textContent =
+    state.contract && state.contract.real
+      ? `Manifest v${manifest.version ?? '?'} · ${list.length} checkpoint${
+          list.length === 1 ? '' : 's'
+        }`
+      : 'Trained manifest not loaded — showing stub policy information.';
+}
+
+/* ========================================================= CONCURRENT ==== */
+
+const concurrent = {
+  models: [],
+  built: false,
+  running: false,
+  started: false,
+  timer: null,
+  tickMs: 250,
+  generation: 0,
+};
+
+const SETTLED = new Set(['cleared', 'detonated', 'stuck', 'error']);
+
+function concurrentStatusLabel(m) {
+  switch (m.status) {
+    case 'loading':
+      return 'LOADING';
+    case 'idle':
+      return m.policy && m.policy.stub ? 'STUB' : 'READY';
+    case 'running':
+      return 'RUNNING';
+    case 'cleared':
+      return 'CLEARED';
+    case 'detonated':
+      return 'DETONATED';
+    case 'stuck':
+      return 'STUCK';
+    case 'error':
+      return 'ERROR';
+    default:
+      return '—';
+  }
+}
+
+function initConcurrent() {
+  $('concurrent-start').addEventListener('click', () => startConcurrent());
+  $('concurrent-reset').addEventListener('click', () => resetConcurrent());
+  const speed = $('concurrent-speed');
+  speed.addEventListener('input', () => {
+    concurrent.tickMs = 1200 - Number(speed.value);
+  });
+  concurrent.tickMs = 1200 - Number(speed.value);
+}
+
+async function loadConcurrentPolicy(model, gen) {
+  try {
+    const policy = await getPolicy(model.id);
+    if (gen !== concurrent.generation) return;
+    model.policy = policy;
+    if (model.status === 'loading') {
+      model.status = concurrent.running ? 'running' : 'idle';
+    }
+  } catch (err) {
+    if (gen !== concurrent.generation) return;
+    console.error('concurrent policy load failed', model.id, err);
+    model.status = 'error';
+    model.error = String((err && err.message) || err);
+  }
+  renderConcurrent();
+}
+
+function buildConcurrent() {
+  const host = $('concurrent-grid');
+  host.replaceChildren();
+  concurrent.models = [];
+  concurrent.generation++;
+  const gen = concurrent.generation;
+
+  for (const ckpt of listCheckpoints()) {
+    const card = document.createElement('article');
+    card.className = 'concurrent-card';
+    card.dataset.status = 'loading';
+
+    const head = document.createElement('header');
+    head.className = 'cc-head';
+    const id = document.createElement('span');
+    id.className = 'cc-id';
+    id.textContent = ckpt.id;
+    const points = document.createElement('span');
+    points.className = 'cc-points';
+    points.textContent = '0';
+    head.append(id, points);
+
+    const name = document.createElement('p');
+    name.className = 'cc-name';
+    name.textContent = ckpt.label || ckpt.id;
+
+    const boardHost = document.createElement('div');
+    boardHost.className = 'cc-board';
+    const view = createBoardView(boardHost, {
+      label: `${ckpt.label || ckpt.id} board`,
+      interactive: false,
+    });
+
+    const line = document.createElement('p');
+    line.className = 'cc-line';
+    const status = document.createElement('span');
+    status.className = 'cc-status';
+    status.textContent = 'LOADING';
+    const stats = document.createElement('span');
+    stats.className = 'cc-stats';
+    stats.textContent = '0 moves · 0 pts';
+    line.append(status, stats);
+
+    card.append(head, name, boardHost, line);
+    host.appendChild(card);
+
+    const model = {
+      id: ckpt.id,
+      label: ckpt.label || ckpt.id,
+      game: new Game(state.seed),
+      policy: null,
+      status: 'loading',
+      moves: 0,
+      points: 0,
+      error: null,
+      view,
+      refs: { card, status, stats, points },
+    };
+    concurrent.models.push(model);
+    loadConcurrentPolicy(model, gen);
+  }
+
+  concurrent.built = true;
+  renderConcurrent();
+}
+
+function resetConcurrent() {
+  pauseConcurrent();
+  concurrent.running = false;
+  concurrent.started = false;
+  concurrent.generation++;
+  const gen = concurrent.generation;
+
+  if (!concurrent.built || concurrent.models.length !== listCheckpoints().length) {
+    buildConcurrent();
+    return;
+  }
+
+  for (const m of concurrent.models) {
+    m.game = new Game(state.seed);
+    m.moves = 0;
+    m.points = 0;
+    m.error = null;
+    if (m.policy) {
+      m.status = 'idle';
+    } else {
+      m.status = 'loading';
+      loadConcurrentPolicy(m, gen);
+    }
+  }
+  announceConcurrent('');
+  renderConcurrent();
+}
+
+function startConcurrent() {
+  if (!concurrent.built) buildConcurrent();
+  if (concurrent.running) {
+    pauseConcurrent();
+    return;
+  }
+  if (concurrent.models.length && concurrent.models.every((m) => SETTLED.has(m.status))) {
+    resetConcurrent();
+  }
+  concurrent.running = true;
+  concurrent.started = true;
+  for (const m of concurrent.models) if (m.status === 'idle') m.status = 'running';
+  announceConcurrent('Concurrent run started');
+  renderConcurrent();
+  scheduleConcurrentTick(0);
+}
+
+function pauseConcurrent() {
+  concurrent.running = false;
+  if (concurrent.timer) clearTimeout(concurrent.timer);
+  concurrent.timer = null;
+  updateConcurrentButton();
+}
+
+function scheduleConcurrentTick(delay) {
+  if (!concurrent.running) return;
+  if (concurrent.timer) clearTimeout(concurrent.timer);
+  concurrent.timer = setTimeout(concurrentTick, delay);
+}
+
+async function concurrentStep(model, gen) {
+  const g = model.game;
+  if (g.finished || !model.policy) return;
+
+  const mask = g.legalMask();
+  let anyLegal = false;
+  for (let i = 0; i < SIZE; i++) {
+    if (mask[i]) {
+      anyLegal = true;
+      break;
+    }
+  }
+  if (!anyLegal) {
+    // No legal reveal and not won -> tripped up.
+    model.status = 'stuck';
+    model.points = pointsFor(g);
+    return;
+  }
+
+  let decision;
+  try {
+    decision = await model.policy.act(g.state(), mask);
+  } catch (err) {
+    if (gen !== concurrent.generation) return;
+    console.error('concurrent policy.act failed', model.id, err);
+    model.status = 'error';
+    model.error = String((err && err.message) || err);
+    model.points = pointsFor(g);
+    return;
+  }
+  if (gen !== concurrent.generation) return;
+
+  if (!decision || decision.action < 0 || !mask[decision.action]) {
+    model.status = 'stuck';
+    model.points = pointsFor(g);
+    return;
+  }
+
+  g.reveal(decision.action);
+  model.moves = g.moves;
+  if (g.status === 'won') model.status = 'cleared';
+  else if (g.status === 'lost') model.status = 'detonated';
+  model.points = pointsFor(g);
+}
+
+async function concurrentTick() {
+  if (!concurrent.running) return;
+  const gen = concurrent.generation;
+
+  // One action per running model, in rotation, awaited one at a time so the
+  // whole field visibly advances together without nine concurrent loops.
+  for (const model of concurrent.models) {
+    if (!concurrent.running || gen !== concurrent.generation) return;
+    if (model.status !== 'running') continue;
+    await concurrentStep(model, gen);
+  }
+  if (!concurrent.running || gen !== concurrent.generation) return;
+
+  renderConcurrent();
+  const pending = concurrent.models.some(
+    (m) => m.status === 'running' || m.status === 'loading',
+  );
+  if (pending) scheduleConcurrentTick(concurrent.tickMs);
+  else finishConcurrent();
+}
+
+function finishConcurrent() {
+  pauseConcurrent();
+  const counts = tallyConcurrent();
+  const total = concurrent.models.reduce((sum, m) => sum + m.points, 0);
+  announceConcurrent(
+    `All models finished: ${counts.cleared} cleared, ${counts.detonated} detonated, ` +
+      `${counts.stuck} stuck. Total ${total} points.`,
+  );
+  renderConcurrent();
+}
+
+function tallyConcurrent() {
+  const counts = { cleared: 0, detonated: 0, stuck: 0 };
+  for (const m of concurrent.models) if (Object.hasOwn(counts, m.status)) counts[m.status]++;
+  return counts;
+}
+
+function renderLeaderboard() {
+  const host = $('concurrent-leaderboard');
+  host.replaceChildren();
+  const sorted = [...concurrent.models].sort(
+    (a, b) => b.points - a.points || a.id.localeCompare(b.id),
+  );
+  sorted.forEach((m, i) => {
+    const li = document.createElement('li');
+    li.className = `leader-row ${m.status}`;
+    const rank = document.createElement('span');
+    rank.className = 'leader-rank';
+    rank.textContent = `#${i + 1}`;
+    const name = document.createElement('span');
+    name.className = 'leader-name';
+    name.textContent = m.label;
+    const stat = document.createElement('span');
+    stat.className = 'leader-stat';
+    stat.textContent = `${concurrentStatusLabel(m)} · ${m.points} pts`;
+    li.append(rank, name, stat);
+    host.appendChild(li);
+  });
+}
+
+function renderConcurrent() {
+  if (!concurrent.models.length) {
+    updateConcurrentButton();
+    return;
+  }
+  for (const m of concurrent.models) {
+    m.view.render(m.game, {
+      interactive: false,
+      revealMines: m.game.status === 'lost',
+    });
+    const label = concurrentStatusLabel(m);
+    m.refs.card.dataset.status = m.status;
+    m.refs.status.textContent = label;
+    m.refs.stats.textContent = `${m.moves} moves · ${m.points} pts`;
+    m.refs.points.textContent = String(m.points);
+    m.refs.card.setAttribute(
+      'aria-label',
+      `${m.label}: ${label}, ${m.moves} moves, ${m.points} points`,
+    );
+  }
+
+  const counts = tallyConcurrent();
+  const total = concurrent.models.reduce((sum, m) => sum + m.points, 0);
+  $('concurrent-cleared').textContent = String(counts.cleared);
+  $('concurrent-detonated').textContent = String(counts.detonated);
+  $('concurrent-stuck').textContent = String(counts.stuck);
+  $('concurrent-total').textContent = String(total);
+  renderLeaderboard();
+  updateConcurrentButton();
+}
+
+function updateConcurrentButton() {
+  const btn = $('concurrent-start');
+  if (concurrent.running) {
+    btn.textContent = 'PAUSE';
+    btn.dataset.state = 'running';
+  } else {
+    delete btn.dataset.state;
+    if (concurrent.models.length && concurrent.models.every((m) => SETTLED.has(m.status))) {
+      btn.textContent = 'REPLAY';
+    } else if (concurrent.started) {
+      btn.textContent = 'RESUME';
+    } else {
+      btn.textContent = 'START';
+    }
+  }
+}
+
+function announceConcurrent(text) {
+  const el = document.getElementById('concurrent-live');
+  if (el) el.textContent = text;
+}
+
 /* ================================================================ MODES === */
 
 function setMode(mode) {
@@ -500,6 +983,8 @@ function setMode(mode) {
   }
   if (mode !== 'ai') stopAILoop();
   if (mode !== 'race') stopRaceLoop();
+  // Leaving CONCURRENT pauses the lockstep loop so it never runs off-screen.
+  if (mode !== 'concurrent') pauseConcurrent();
 
   if (mode === 'play') {
     if (!play.game) resetPlay();
@@ -507,9 +992,14 @@ function setMode(mode) {
   } else if (mode === 'ai') {
     if (!ai.game) resetAI();
     renderAI();
-  } else {
+  } else if (mode === 'race') {
     if (!race.human) resetRace();
     renderRace();
+  } else if (mode === 'concurrent') {
+    if (!concurrent.built) buildConcurrent();
+    else renderConcurrent();
+  } else if (mode === 'models') {
+    renderModels();
   }
 }
 
@@ -563,6 +1053,7 @@ function rebuildForSeed() {
   $('race-result').textContent = '';
   $('race-result').className = 'race-result';
   $('race-start').textContent = 'START RACE';
+  if (concurrent.built) resetConcurrent();
   setMode(state.mode);
 }
 
@@ -604,6 +1095,7 @@ async function selectCheckpoint(id) {
   // Give the freshly-selected policy a clean board so its play is comparable.
   if (state.mode === 'ai') resetAI();
   if (state.mode === 'race') resetRace();
+  if (state.mode === 'models') renderModels();
 }
 
 async function boot() {
@@ -614,6 +1106,7 @@ async function boot() {
   initPlay();
   initAI();
   initRace();
+  initConcurrent();
 
   const tabs = [...document.querySelectorAll('.tab')];
   for (const tab of tabs) {
