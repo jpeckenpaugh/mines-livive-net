@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>mines.livive.net — RL Minesweeper arcade cabinet</title>
+    <meta
+      name="description"
+      content="A retro arcade cabinet for 8x8 Minesweeper: play deterministic seeds, watch an ONNX RL policy reason with a live action mask and confidence heatmap, or race it side by side."
+    />
+    <meta name="theme-color" content="#0a0a14" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="src/style.css" />
+  </head>
+  <body>
+    <div class="scanlines" aria-hidden="true"></div>
+
+    <div class="cabinet">
+      <header class="marquee">
+        <h1>MINES<span class="dot">.livive.net</span></h1>
+        <p class="tagline">8×8 · 10 mines · deterministic seeds · human vs ONNX RL</p>
+      </header>
+
+      <section class="console" aria-label="Cabinet controls">
+        <div class="tabs" role="tablist" aria-label="Game mode">
+          <button class="tab active" role="tab" aria-selected="true" data-mode="play">PLAY</button>
+          <button class="tab" role="tab" aria-selected="false" data-mode="ai">AI</button>
+          <button class="tab" role="tab" aria-selected="false" data-mode="race">RACE</button>
+        </div>
+
+        <div class="control-cluster">
+          <label class="field" for="seed-input">
+            <span class="field-label">SEED</span>
+            <input id="seed-input" type="number" min="0" step="1" inputmode="numeric" />
+          </label>
+          <button id="new-seed" class="btn" type="button">NEW</button>
+          <button id="copy-link" class="btn" type="button">LINK</button>
+        </div>
+
+        <div class="control-cluster">
+          <label class="field" for="checkpoint">
+            <span class="field-label">CHECKPOINT</span>
+            <select id="checkpoint"></select>
+          </label>
+          <span id="backend-badge" class="badge badge-stub">loading…</span>
+        </div>
+
+        <div class="control-cluster tools">
+          <button id="flag-toggle" class="btn toggle" type="button">
+            FLAG MODE <span id="flag-state">OFF</span>
+          </button>
+          <button id="heat-toggle" class="btn toggle on" type="button">
+            HEATMAP <span id="heat-state">ON</span>
+          </button>
+          <button id="mask-toggle" class="btn toggle on" type="button">
+            MASK <span id="mask-state">ON</span>
+          </button>
+        </div>
+      </section>
+
+      <div id="boot-error" class="boot-error" role="alert" hidden></div>
+
+      <main>
+        <!-- ============================ PLAY ============================ -->
+        <section class="panel stage" data-panel="play">
+          <div class="board-frame">
+            <div id="play-board" class="board"></div>
+          </div>
+          <aside class="hud" aria-live="polite">
+            <div class="hud-status">
+              <span class="hud-label">STATUS</span>
+              <span id="play-status" class="hud-value" data-state="ready">READY</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">MINES</span>
+              <span id="play-mines" class="hud-value">10</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">FLAGS</span>
+              <span id="play-flags" class="hud-value">0</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">MOVES</span>
+              <span id="play-moves" class="hud-value">0</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">TIME</span>
+              <span id="play-time" class="hud-value">00:00</span>
+            </div>
+            <button id="play-reset" class="btn wide" type="button">RESET BOARD</button>
+            <p class="hint">
+              Click / tap to reveal · right-click or long-press to flag ·
+              arrows + Enter + F on keyboard. First click is always safe.
+            </p>
+          </aside>
+        </section>
+
+        <!-- ============================== AI ============================ -->
+        <section class="panel stage" data-panel="ai" hidden>
+          <div class="board-frame">
+            <div id="ai-board" class="board"></div>
+          </div>
+          <aside class="hud" aria-live="polite">
+            <div class="hud-status">
+              <span class="hud-label">STATUS</span>
+              <span id="ai-status" class="hud-value" data-state="ready">READY</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">MOVE</span>
+              <span id="ai-moves" class="hud-value">0</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">TIME</span>
+              <span id="ai-time" class="hud-value">00:00</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">PICKED</span>
+              <span id="ai-action" class="hud-value">—</span>
+            </div>
+            <div class="hud-status">
+              <span class="hud-label">CONFIDENCE</span>
+              <span id="ai-confidence" class="hud-value">—</span>
+            </div>
+            <div class="dist">
+              <span class="hud-label">TOP MOVES</span>
+              <div id="ai-dist" class="dist-list"></div>
+            </div>
+            <div class="ai-controls">
+              <button id="ai-play" class="btn wide" type="button">PLAY</button>
+              <div class="ai-buttons">
+                <button id="ai-step" class="btn" type="button">STEP</button>
+                <button id="ai-reset" class="btn" type="button">RESET</button>
+              </div>
+              <label class="field range" for="ai-speed">
+                <span class="field-label">SPEED</span>
+                <input id="ai-speed" type="range" min="100" max="1100" step="50" value="820" />
+              </label>
+            </div>
+          </aside>
+        </section>
+
+        <!-- ============================= RACE =========================== -->
+        <section class="panel race" data-panel="race" hidden>
+          <div class="race-grid">
+            <div class="race-side">
+              <h2 class="race-title">YOU</h2>
+              <div id="race-human" class="board"></div>
+              <p id="race-human-hud" class="race-hud">READY · 10 mines · 0 moves · 00:00</p>
+            </div>
+            <div class="race-side">
+              <h2 class="race-title">AI</h2>
+              <div id="race-ai" class="board"></div>
+              <p id="race-ai-hud" class="race-hud">READY · 10 mines · 0 moves · 00:00</p>
+            </div>
+          </div>
+          <div class="race-bar">
+            <button id="race-start" class="btn wide" type="button">START RACE</button>
+            <button id="race-reset" class="btn" type="button">RESET</button>
+          </div>
+          <div id="race-result" class="race-result" aria-live="polite"></div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>
+          Deterministic seeds · first-click-safe 8×8/10 engine ·
+          <a href="https://github.com/jpeckenpaugh/mines-livive-net">source</a>
+        </p>
+      </footer>
+    </div>
+
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
