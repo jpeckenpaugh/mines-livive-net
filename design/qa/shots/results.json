@@ -1,6 +1,6 @@
 {
   "base": "https://mines.livive.net",
-  "startedAt": "2026-10-15T20:03:07.512Z",
+  "startedAt": "2026-10-15T20:19:24.031Z",
   "console": [],
   "checks": [
     {
@@ -258,7 +258,7 @@
     "gridLabel": "Play board",
     "tabCount": 3,
     "firstCellTab": "0",
-    "liveRegions": 3
+    "liveRegions": 4
   },
   "keyboard": {
     "before": "cell A1, hidden",
@@ -324,5 +324,5 @@
     "pageErrors": [],
     "requestFailed": []
   },
-  "endedAt": "2026-10-15T20:03:31.537Z"
+  "endedAt": "2026-10-15T20:19:48.734Z"
 }

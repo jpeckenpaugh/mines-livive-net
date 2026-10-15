@@ -9,73 +9,79 @@
     "flagged": 0
   },
   "tabAfterArrowRight": {
-    "activeMode": "play",
-    "focused": "play"
+    "activeMode": "ai",
+    "focused": "ai"
   },
   "tabAria": [
     {
       "mode": "play",
       "role": "tab",
-      "controls": null,
-      "selected": "true",
-      "tabindex": null
+      "controls": "panel-play",
+      "selected": "false",
+      "tabindex": "-1"
     },
     {
       "mode": "ai",
       "role": "tab",
-      "controls": null,
-      "selected": "false",
-      "tabindex": null
+      "controls": "panel-ai",
+      "selected": "true",
+      "tabindex": "0"
     },
     {
       "mode": "race",
       "role": "tab",
-      "controls": null,
+      "controls": "panel-race",
       "selected": "false",
-      "tabindex": null
+      "tabindex": "-1"
     }
   ],
   "panels": [
     {
       "panel": "play",
-      "role": null,
-      "id": "",
-      "labelledby": null
+      "role": "tabpanel",
+      "id": "panel-play",
+      "labelledby": "tab-play"
     },
     {
       "panel": "ai",
-      "role": null,
-      "id": "",
-      "labelledby": null
+      "role": "tabpanel",
+      "id": "panel-ai",
+      "labelledby": "tab-ai"
     },
     {
       "panel": "race",
-      "role": null,
-      "id": "",
-      "labelledby": null
+      "role": "tabpanel",
+      "id": "panel-race",
+      "labelledby": "tab-race"
     }
   ],
   "grid": {
     "role": "grid",
-    "rowChildren": 0,
-    "ariaRowCount": null,
-    "ariaColCount": null,
+    "rowChildren": 8,
+    "ariaRowCount": "8",
+    "ariaColCount": "8",
     "cells": 64
   },
-  "aiBoardFocusable": 1,
-  "raceAiFocusable": 1,
+  "aiBoardFocusable": 0,
+  "raceAiFocusable": 0,
   "liveRegions": [
     {
-      "tag": "ASIDE",
-      "cls": "hud",
+      "tag": "SPAN",
+      "cls": "sr-only",
       "live": "polite",
-      "containsClock": true
+      "containsClock": false
     },
     {
       "tag": "ASIDE",
       "cls": "hud",
       "live": "polite",
-      "containsClock": true
+      "containsClock": false
+    },
+    {
+      "tag": "ASIDE",
+      "cls": "hud",
+      "live": "polite",
+      "containsClock": false
     },
     {
       "tag": "DIV",
@@ -84,7 +90,7 @@
       "containsClock": false
     }
   ],
-  "clockMutatePerSec": 5,
+  "clockMutatePerSec": 0,
   "colorScheme": "dark",
   "themeColor": "#0a0a14",
   "viewport": "width=device-width, initial-scale=1, viewport-fit=cover",
