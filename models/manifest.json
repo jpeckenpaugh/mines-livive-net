@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "board": {
+    "h": 8,
+    "w": 8,
+    "mines": 10
+  },
+  "input": {
+    "shape": [
+      1,
+      8,
+      8,
+      8
+    ],
+    "layout": "nchw"
+  },
+  "output": {
+    "shape": [
+      1,
+      64
+    ],
+    "type": "logits"
+  },
+  "checkpoints": [
+    {
+      "id": "m0",
+      "label": "Milestone 0 — baseline (uniform logits)",
+      "file": "models/policy-m0.onnx",
+      "eval": {
+        "win_rate": 0.0,
+        "mine_hit_rate": 1.0
+      }
+    },
+    {
+      "id": "m1",
+      "label": "Milestone 1 — imitation of basic solver",
+      "file": "models/policy-m1.onnx",
+      "eval": {
+        "win_rate": 0.414,
+        "mine_hit_rate": 0.586
+      }
+    },
+    {
+      "id": "m2",
+      "label": "Milestone 2 — imitation of subset solver",
+      "file": "models/policy-m2.onnx",
+      "eval": {
+        "win_rate": 0.556,
+        "mine_hit_rate": 0.444
+      }
+    }
+  ]
+}

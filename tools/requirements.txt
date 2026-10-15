@@ -1,0 +1,8 @@
+# Python deps for the Minesweeper RL/BC training + eval pipeline (CPU-only).
+#
+# On x86-64 install the CPU build of torch to avoid pulling CUDA wheels:
+#   python3 -m pip install -r tools/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+numpy>=2.0
+torch>=2.2
+onnx>=1.16
+onnxruntime>=1.18
