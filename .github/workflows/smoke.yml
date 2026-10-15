@@ -52,7 +52,6 @@ jobs:
 
           check "$SITE/"
           check "$SITE/index.html"
-          check "$SITE/404.html"
           check "$SITE/robots.txt"
           check "$SITE/sitemap.xml"
 
@@ -77,8 +76,21 @@ jobs:
           check "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort.wasm.min.mjs"
           check "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort-wasm-simd-threaded.wasm"
 
-          # Unknown paths must 404 (and serve the custom 404 body).
-          check "$SITE/definitely-not-a-real-page-$RANDOM" 404
+      - name: Assert unknown paths 404 with the custom 404.html body
+        run: |
+          set -euo pipefail
+          # GitHub Pages serves the custom 404 document with a 404 status for
+          # unknown paths (a direct request to /404.html also returns 404).
+          code="$(curl -sS -o "$RUNNER_TEMP/live-404.html" -w '%{http_code}' -L --retry 3 "$SITE/definitely-not-a-real-page-$RANDOM")"
+          echo "$code  <unknown path>"
+          if [ "$code" != "404" ]; then
+            echo "::error::expected HTTP 404 for an unknown path, got $code"
+            exit 1
+          fi
+          grep -q "This cell is empty" "$RUNNER_TEMP/live-404.html" || {
+            echo "::error::unknown path did not serve the custom 404.html body"
+            exit 1
+          }
 
       - name: Assert root serves the committed index.html (not the README)
         run: |
