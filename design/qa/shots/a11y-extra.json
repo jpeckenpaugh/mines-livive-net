@@ -1,0 +1,93 @@
+{
+  "afterArrow": "cell E4, hidden",
+  "afterEnter": {
+    "status": "PLAYING",
+    "revealed": 31
+  },
+  "afterFlag": {
+    "flags": "0",
+    "flagged": 0
+  },
+  "tabAfterArrowRight": {
+    "activeMode": "play",
+    "focused": "play"
+  },
+  "tabAria": [
+    {
+      "mode": "play",
+      "role": "tab",
+      "controls": null,
+      "selected": "true",
+      "tabindex": null
+    },
+    {
+      "mode": "ai",
+      "role": "tab",
+      "controls": null,
+      "selected": "false",
+      "tabindex": null
+    },
+    {
+      "mode": "race",
+      "role": "tab",
+      "controls": null,
+      "selected": "false",
+      "tabindex": null
+    }
+  ],
+  "panels": [
+    {
+      "panel": "play",
+      "role": null,
+      "id": "",
+      "labelledby": null
+    },
+    {
+      "panel": "ai",
+      "role": null,
+      "id": "",
+      "labelledby": null
+    },
+    {
+      "panel": "race",
+      "role": null,
+      "id": "",
+      "labelledby": null
+    }
+  ],
+  "grid": {
+    "role": "grid",
+    "rowChildren": 0,
+    "ariaRowCount": null,
+    "ariaColCount": null,
+    "cells": 64
+  },
+  "aiBoardFocusable": 1,
+  "raceAiFocusable": 1,
+  "liveRegions": [
+    {
+      "tag": "ASIDE",
+      "cls": "hud",
+      "live": "polite",
+      "containsClock": true
+    },
+    {
+      "tag": "ASIDE",
+      "cls": "hud",
+      "live": "polite",
+      "containsClock": true
+    },
+    {
+      "tag": "DIV",
+      "cls": "race-result",
+      "live": "polite",
+      "containsClock": false
+    }
+  ],
+  "clockMutatePerSec": 5,
+  "colorScheme": "dark",
+  "themeColor": "#0a0a14",
+  "viewport": "width=device-width, initial-scale=1, viewport-fit=cover",
+  "errors": [],
+  "finalStatus": "PLAYING"
+}

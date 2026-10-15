@@ -1,0 +1,328 @@
+{
+  "base": "https://mines.livive.net",
+  "startedAt": "2026-10-15T20:03:07.512Z",
+  "console": [],
+  "checks": [
+    {
+      "name": "onnx.runtime-loads",
+      "pass": true,
+      "detail": "backend badge shows ONNX checkpoints live",
+      "evidence": null
+    },
+    {
+      "name": "a11y.html-lang",
+      "pass": true,
+      "detail": "lang=\"en\"",
+      "evidence": null
+    },
+    {
+      "name": "a11y.zoom-allowed",
+      "pass": true,
+      "detail": "viewport=\"width=device-width, initial-scale=1, viewport-fit=cover\"",
+      "evidence": null
+    },
+    {
+      "name": "a11y.board-grid-semantics",
+      "pass": true,
+      "detail": "role=grid",
+      "evidence": null
+    },
+    {
+      "name": "a11y.no-new-tab-ambiguity",
+      "pass": true,
+      "detail": "0 target=_blank link(s)",
+      "evidence": null
+    },
+    {
+      "name": "play.first-click-safe",
+      "pass": true,
+      "detail": "8/8 seeds survived first click (never LOST)",
+      "evidence": null
+    },
+    {
+      "name": "play.keyboard-navigate",
+      "pass": true,
+      "detail": "cursor cell A1, hidden -> cell B1, hidden, roving tabindex count=1",
+      "evidence": null
+    },
+    {
+      "name": "a11y.focus-visible-tab",
+      "pass": true,
+      "detail": "{\"outlineStyle\":\"solid\",\"outlineWidth\":\"2px\",\"outlineColor\":\"rgb(34, 224, 255)\"}",
+      "evidence": null
+    },
+    {
+      "name": "play.deterministic-seed",
+      "pass": true,
+      "detail": "seed=777 identical signature (1128 bytes)",
+      "evidence": null
+    },
+    {
+      "name": "ai.autoplay-steps",
+      "pass": true,
+      "detail": "moves=2 picked=E1 conf=2.0%",
+      "evidence": null
+    },
+    {
+      "name": "ai.distribution-renders",
+      "pass": true,
+      "detail": "5 top-move rows",
+      "evidence": null
+    },
+    {
+      "name": "ai.overlays-render",
+      "pass": true,
+      "detail": "selected=1 heat=49 mask=49",
+      "evidence": null
+    },
+    {
+      "name": "ai.checkpoint-selector",
+      "pass": true,
+      "detail": "[{\"id\":\"m0\",\"action\":\"A1\",\"confidence\":\"1.6%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m1\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m2\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"}]",
+      "evidence": null
+    },
+    {
+      "name": "race.mode-renders",
+      "pass": true,
+      "detail": "{\"humanHud\":\"READY · 10 mines · 0 moves · 00:03\",\"aiHud\":\"PLAYING · 10 mines · 10 moves · 00:03\",\"result\":\"\",\"humanCells\":64,\"aiCells\":64}",
+      "evidence": null
+    },
+    {
+      "name": "mobile.tap-reveals",
+      "pass": true,
+      "detail": "{\"status\":\"PLAYING\",\"revealed\":15}",
+      "evidence": null
+    },
+    {
+      "name": "mobile.no-horizontal-overflow",
+      "pass": true,
+      "detail": "scrollW=390 clientW=390",
+      "evidence": null
+    },
+    {
+      "name": "a11y.reduced-motion",
+      "pass": true,
+      "detail": "{\"selectedAnim\":\"none\",\"detonateAnim\":\"none\"}",
+      "evidence": null
+    },
+    {
+      "name": "console.no-uncaught-errors",
+      "pass": true,
+      "detail": "0 console errors, 0 page errors",
+      "evidence": null
+    }
+  ],
+  "notes": [],
+  "contrast": [
+    {
+      "name": "ink on panel",
+      "fg": "#e6e9ff",
+      "bg": "#101024",
+      "ratio": 15.57,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "muted on panel",
+      "fg": "#8b8fc4",
+      "bg": "#101024",
+      "ratio": 6.08,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "muted on bg",
+      "fg": "#8b8fc4",
+      "bg": "#05050c",
+      "ratio": 6.6,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "cyan on panel",
+      "fg": "#22e0ff",
+      "bg": "#101024",
+      "ratio": 11.75,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "green on panel",
+      "fg": "#4dff88",
+      "bg": "#101024",
+      "ratio": 14.24,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "yellow on panel",
+      "fg": "#ffd23f",
+      "bg": "#101024",
+      "ratio": 12.97,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "red on panel",
+      "fg": "#ff4d5e",
+      "bg": "#101024",
+      "ratio": 5.77,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "tab active txt on #ff9f43",
+      "fg": "#05050c",
+      "bg": "#ff9f43",
+      "ratio": 9.96,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n1 on revealed",
+      "fg": "#4aa3ff",
+      "bg": "#0c0c1e",
+      "ratio": 7.34,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n2 on revealed",
+      "fg": "#4dff88",
+      "bg": "#0c0c1e",
+      "ratio": 14.7,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n3 on revealed",
+      "fg": "#ff6b6b",
+      "bg": "#0c0c1e",
+      "ratio": 6.96,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n4 on revealed",
+      "fg": "#c58bff",
+      "bg": "#0c0c1e",
+      "ratio": 7.83,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n5 on revealed",
+      "fg": "#ffd23f",
+      "bg": "#0c0c1e",
+      "ratio": 13.38,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n6 on revealed",
+      "fg": "#4de0e0",
+      "bg": "#0c0c1e",
+      "ratio": 12.01,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n7 on revealed",
+      "fg": "#ff9f43",
+      "bg": "#0c0c1e",
+      "ratio": 9.47,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "number n8 on revealed",
+      "fg": "#e8e8ff",
+      "bg": "#0c0c1e",
+      "ratio": 16.02,
+      "min": 4.5,
+      "pass": true
+    }
+  ],
+  "dom": {
+    "lang": "en",
+    "viewport": "width=device-width, initial-scale=1, viewport-fit=cover",
+    "links": [
+      {
+        "href": "https://github.com/jpeckenpaugh/mines-livive-net",
+        "target": null,
+        "rel": null,
+        "text": "source"
+      }
+    ],
+    "gridRole": "grid",
+    "gridLabel": "Play board",
+    "tabCount": 3,
+    "firstCellTab": "0",
+    "liveRegions": 3
+  },
+  "keyboard": {
+    "before": "cell A1, hidden",
+    "after": "cell B1, hidden",
+    "tabbables": 1,
+    "activeIsCell": true
+  },
+  "focus": {
+    "outlineStyle": "solid",
+    "outlineWidth": "2px",
+    "outlineColor": "rgb(34, 224, 255)"
+  },
+  "ai": {
+    "status": "LOST",
+    "moves": "2",
+    "action": "E1",
+    "confidence": "2.0%",
+    "distRows": 5,
+    "selected": 1,
+    "heat": 49,
+    "mask": 49
+  },
+  "checkpoints": [
+    "m0",
+    "m1",
+    "m2"
+  ],
+  "race": {
+    "humanHud": "READY · 10 mines · 0 moves · 00:03",
+    "aiHud": "PLAYING · 10 mines · 10 moves · 00:03",
+    "result": "",
+    "humanCells": 64,
+    "aiCells": 64
+  },
+  "desktopErrors": {
+    "console": [],
+    "pageErrors": [],
+    "requestFailed": [],
+    "warnings": []
+  },
+  "mobile": {
+    "tap": {
+      "status": "PLAYING",
+      "revealed": 15
+    },
+    "overflow": {
+      "scrollW": 390,
+      "clientW": 390
+    },
+    "errors": {
+      "console": [],
+      "pageErrors": [],
+      "requestFailed": [],
+      "warnings": []
+    }
+  },
+  "reducedMotion": {
+    "selectedAnim": "none",
+    "detonateAnim": "none"
+  },
+  "errors": {
+    "console": [],
+    "pageErrors": [],
+    "requestFailed": []
+  },
+  "endedAt": "2026-10-15T20:03:31.537Z"
+}
