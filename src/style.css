@@ -51,6 +51,18 @@ a:focus-visible {
   border-radius: 3px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .scanlines {
   position: fixed;
   inset: 0;
@@ -114,7 +126,7 @@ a:focus-visible {
 .tagline {
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: clamp(8px, 2.2vw, 11px);
+  font-size: clamp(10px, 2.2vw, 11px);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -335,6 +347,12 @@ main {
   touch-action: manipulation;
 }
 
+/* ARIA rows wrap the 64 cells but contribute no boxes, so the 8x8 CSS grid
+   layout is unchanged while the grid exposes real row semantics. */
+.board-row {
+  display: contents;
+}
+
 .cell {
   position: relative;
   aspect-ratio: 1 / 1;
@@ -488,7 +506,7 @@ main {
 
 /* ----------------------------------------------------------------- HUD -- */
 
-.hud {
+.hud-panel {
   width: min(92vw, 300px);
   display: flex;
   flex-direction: column;
@@ -497,6 +515,14 @@ main {
   border: 2px solid var(--edge);
   border-radius: 12px;
   background: var(--panel);
+}
+
+/* The live region is intentionally chrome-free and holds only the STATUS row so
+   the per-tick clock updates stay out of assistive-tech announcements. */
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .hud-status {

@@ -168,8 +168,7 @@ const ai = {
 };
 
 function initAI() {
-  ai.board = createBoardView($('ai-board'), { label: 'AI board' });
-  ai.board.interactive = false;
+  ai.board = createBoardView($('ai-board'), { label: 'AI board', interactive: false });
   $('ai-play').addEventListener('click', () => toggleAI());
   $('ai-step').addEventListener('click', () => {
     ai.running = false;
@@ -345,8 +344,7 @@ function initRace() {
       label: 'Your board',
     },
   );
-  race.aiBoard = createBoardView($('race-ai'), { label: 'AI board' });
-  race.aiBoard.interactive = false;
+  race.aiBoard = createBoardView($('race-ai'), { label: 'AI board', interactive: false });
   $('race-start').addEventListener('click', () => startRace());
   $('race-reset').addEventListener('click', () => resetRace());
 }
@@ -491,8 +489,11 @@ function renderRace() {
 function setMode(mode) {
   state.mode = mode;
   for (const tab of document.querySelectorAll('.tab')) {
-    tab.classList.toggle('active', tab.dataset.mode === mode);
-    tab.setAttribute('aria-selected', tab.dataset.mode === mode ? 'true' : 'false');
+    const active = tab.dataset.mode === mode;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    // Roving tabindex: only the active tab is in the tab order.
+    tab.tabIndex = active ? 0 : -1;
   }
   for (const panel of document.querySelectorAll('.panel')) {
     panel.hidden = panel.dataset.panel !== mode;
@@ -510,6 +511,34 @@ function setMode(mode) {
     if (!race.human) resetRace();
     renderRace();
   }
+}
+
+// WAI-ARIA Tabs: Left/Right move between tabs (wrapping) and Home/End jump to
+// the ends. Selection follows focus (automatic activation), which keeps the
+// tab and its panel in sync for the probe and for assistive tech.
+function onTabKeydown(e, tabs) {
+  const i = tabs.indexOf(e.currentTarget);
+  let next = null;
+  switch (e.key) {
+    case 'ArrowRight':
+      next = (i + 1) % tabs.length;
+      break;
+    case 'ArrowLeft':
+      next = (i - 1 + tabs.length) % tabs.length;
+      break;
+    case 'Home':
+      next = 0;
+      break;
+    case 'End':
+      next = tabs.length - 1;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  const target = tabs[next];
+  setMode(target.dataset.mode);
+  target.focus();
 }
 
 /* ------------------------------------------------------------- rebuild all */
@@ -586,8 +615,10 @@ async function boot() {
   initAI();
   initRace();
 
-  for (const tab of document.querySelectorAll('.tab')) {
+  const tabs = [...document.querySelectorAll('.tab')];
+  for (const tab of tabs) {
     tab.addEventListener('click', () => setMode(tab.dataset.mode));
+    tab.addEventListener('keydown', (e) => onTabKeydown(e, tabs));
   }
   $('new-seed').addEventListener('click', () => {
     state.seed = Math.floor(Math.random() * 0xffffffff) >>> 0;
@@ -601,13 +632,19 @@ async function boot() {
     }
   });
   $('copy-link').addEventListener('click', async () => {
+    const status = $('copy-status');
     try {
       await navigator.clipboard.writeText(location.href);
       $('copy-link').dataset.flash = 'Copied!';
+      status.textContent = 'Link copied to clipboard';
     } catch (err) {
       $('copy-link').dataset.flash = 'Copy blocked';
+      status.textContent = 'Copy blocked — copy the URL from the address bar';
     }
-    setTimeout(() => delete $('copy-link').dataset.flash, 1200);
+    setTimeout(() => {
+      delete $('copy-link').dataset.flash;
+      status.textContent = '';
+    }, 1200);
   });
   $('flag-toggle').addEventListener('click', applyFlagMode);
   $('heat-toggle').addEventListener('click', () => {

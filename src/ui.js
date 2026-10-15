@@ -29,6 +29,9 @@ export class BoardView {
     this.cursor = 0;
     this.flagMode = false;
     this.interactive = true;
+    // `focusable` is a property of the board itself (human-driven vs. AI-driven);
+    // it is independent of whether the current game has finished.
+    this.focusable = handlers.interactive !== false;
     this.cells = [];
     this._suppressClick = false;
     this._pressTimer = null;
@@ -36,19 +39,28 @@ export class BoardView {
     this.root.classList.add('board');
     this.root.setAttribute('role', 'grid');
     this.root.setAttribute('aria-label', handlers.label || 'Minesweeper board');
+    this.root.setAttribute('aria-rowcount', String(H));
+    this.root.setAttribute('aria-colcount', String(W));
     this.root.style.setProperty('--w', String(W));
 
-    for (let i = 0; i < SIZE; i++) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'cell';
-      btn.dataset.index = String(i);
-      btn.setAttribute('role', 'gridcell');
-      btn.setAttribute('aria-label', `cell ${cellName(i)}, hidden`);
-      btn.tabIndex = i === 0 ? 0 : -1;
-      this._wire(btn, i);
-      this.root.appendChild(btn);
-      this.cells.push(btn);
+    for (let r = 0; r < H; r++) {
+      const row = document.createElement('div');
+      row.className = 'board-row';
+      row.setAttribute('role', 'row');
+      this.root.appendChild(row);
+      for (let c = 0; c < W; c++) {
+        const i = r * W + c;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'cell';
+        btn.dataset.index = String(i);
+        btn.setAttribute('role', 'gridcell');
+        btn.setAttribute('aria-label', `cell ${cellName(i)}, hidden`);
+        btn.tabIndex = this.focusable && i === 0 ? 0 : -1;
+        this._wire(btn, i);
+        row.appendChild(btn);
+        this.cells.push(btn);
+      }
     }
 
     this.root.addEventListener('keydown', (e) => this._onKey(e));
@@ -91,7 +103,7 @@ export class BoardView {
   }
 
   setCursor(index, focus = true) {
-    if (index < 0 || index >= SIZE) return;
+    if (!this.focusable || index < 0 || index >= SIZE) return;
     this.cursor = index;
     for (const c of this.cells) c.tabIndex = -1;
     const btn = this.cells[index];
@@ -206,8 +218,10 @@ export class BoardView {
       btn.setAttribute('aria-label', `cell ${cellName(i)}, ${state}`);
     }
 
-    // Keep the roving tabindex on the cursor cell.
-    this.cells[this.cursor].tabIndex = 0;
+    // Roving tabindex for human boards; non-interactive boards stay entirely
+    // out of the tab order so Tab never lands in a dead board.
+    for (const c of this.cells) c.tabIndex = -1;
+    if (this.focusable) this.cells[this.cursor].tabIndex = 0;
   }
 }
 
