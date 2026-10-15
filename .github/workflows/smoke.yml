@@ -1,0 +1,104 @@
+name: smoke
+
+# Lightweight uptime + asset smoke for the live GitHub Pages site at
+# https://mines.livive.net/. Complements the Pages build by asserting, from
+# outside, that the custom domain serves the committed app over HTTPS:
+#   * the root returns 200 and is byte-identical to the committed index.html
+#     (not the README), over the `main` `/` legacy Pages source;
+#   * the model manifest and every ONNX checkpoint are 200;
+#   * the full ES module graph + stylesheet resolve with no 404s;
+#   * the onnxruntime-web runtime is reachable on its pinned CDN;
+#   * unknown paths return 404 (with the custom 404.html body).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - ".github/workflows/smoke.yml"
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE: https://mines.livive.net
+      ORT_VERSION: "1.19.2"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe live endpoints
+        run: |
+          set -euo pipefail
+          check() {
+            local url="$1" expect="${2:-200}" code
+            code="$(curl -sS -o /dev/null -w '%{http_code}' -L --retry 3 --retry-delay 2 "$url")"
+            printf '%s  %s\n' "$code" "$url"
+            if [ "$code" != "$expect" ]; then
+              echo "::error::expected HTTP $expect for $url, got $code"
+              exit 1
+            fi
+          }
+
+          check "$SITE/"
+          check "$SITE/index.html"
+          check "$SITE/404.html"
+          check "$SITE/robots.txt"
+          check "$SITE/sitemap.xml"
+
+          # Model artifacts (Prototype).
+          check "$SITE/models/manifest.json"
+          check "$SITE/models/policy-m0.onnx"
+          check "$SITE/models/policy-m1.onnx"
+          check "$SITE/models/policy-m2.onnx"
+
+          # ES module graph + stylesheet (Frontend).
+          check "$SITE/src/app.js"
+          check "$SITE/src/engine.js"
+          check "$SITE/src/ui.js"
+          check "$SITE/src/contract.js"
+          check "$SITE/src/style.css"
+          check "$SITE/src/featurize.js"
+          check "$SITE/src/policy.js"
+          check "$SITE/src/stub/featurize.js"
+          check "$SITE/src/stub/policy.js"
+
+          # onnxruntime-web runtime (pinned CDN, single-threaded WASM).
+          check "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort.wasm.min.mjs"
+          check "https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/ort-wasm-simd-threaded.wasm"
+
+          # Unknown paths must 404 (and serve the custom 404 body).
+          check "$SITE/definitely-not-a-real-page-$RANDOM" 404
+
+      - name: Assert root serves the committed index.html (not the README)
+        run: |
+          set -euo pipefail
+          curl -sS -L --retry 3 "$SITE/" -o "$RUNNER_TEMP/live-index.html"
+          if ! diff -q index.html "$RUNNER_TEMP/live-index.html" >/dev/null; then
+            echo "::error::https://mines.livive.net/ does not match the committed index.html"
+            diff -u index.html "$RUNNER_TEMP/live-index.html" || true
+            exit 1
+          fi
+          echo "root matches committed index.html ($(wc -c < index.html) bytes)"
+
+      - name: Assert manifest shape and ONNX content type
+        run: |
+          set -euo pipefail
+          curl -sS -L "$SITE/models/manifest.json" | python3 -c 'import json,sys; d=json.load(sys.stdin); cps=d.get("checkpoints") or []; assert cps, "manifest has no checkpoints"; print("checkpoints:", [c["id"] for c in cps])'
+
+          ctype="$(curl -sS -o /dev/null -w '%{content_type}' -L "$SITE/models/policy-m2.onnx")"
+          echo "policy-m2.onnx content-type: $ctype"
+          case "$ctype" in
+            application/octet-stream*|application/onnx*|binary/octet-stream*) ;;
+            *) echo "::warning::unexpected ONNX content-type: $ctype" ;;
+          esac

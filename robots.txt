@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mines.livive.net/sitemap.xml
