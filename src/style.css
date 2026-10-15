@@ -3,6 +3,7 @@
    ========================================================================= */
 
 :root {
+  color-scheme: dark;
   --bg: #05050c;
   --panel: #101024;
   --panel-2: #171733;
@@ -42,6 +43,12 @@ body {
 
 a {
   color: var(--cyan);
+}
+
+a:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 .scanlines {
@@ -150,6 +157,12 @@ a {
 
 .tab:hover {
   color: var(--ink);
+}
+
+/* .tabs has overflow:hidden for the rounded corners, which clips an outer
+   focus ring; draw the tab focus ring inside the button so it stays visible. */
+.tab:focus-visible {
+  outline-offset: -2px;
 }
 
 .tab.active {
