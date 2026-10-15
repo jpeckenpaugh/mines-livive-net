@@ -661,11 +661,15 @@ async function boot() {
   });
   $('checkpoint').addEventListener('change', (e) => selectCheckpoint(e.target.value));
 
+  // Build the games synchronously before the first await. The board is created
+  // in initPlay/initAI/initRace, so it is already interactive; without this a
+  // fast interaction during the contract fetch hits a null game and throws.
+  rebuildForSeed();
+
   state.contract = await resolveContract();
   setBackendBadge(false, state.contract.real);
   populateCheckpoints();
 
-  rebuildForSeed();
   await selectCheckpoint(state.checkpointId);
   applyToggles();
 
