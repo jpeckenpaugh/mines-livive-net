@@ -71,7 +71,7 @@ def validate_onnx(path: str, torch_model: torch.nn.Module | None = None) -> dict
 
 def write_manifest(path: str, checkpoints: list) -> None:
     manifest = {
-        "version": 1,
+        "version": 2,
         "board": {"h": 8, "w": 8, "mines": 10},
         "input": {"shape": [1, 8, 8, 8], "layout": "nchw"},
         "output": {"shape": [1, 64], "type": "logits"},

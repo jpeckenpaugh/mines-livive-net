@@ -1,8 +1,9 @@
-"""Fixed-seed evaluation for the Minesweeper policy checkpoints.
+"""Fixed-seed evaluation for the Minesweeper policy library (manifest v2).
 
-Runs every checkpoint through a deterministic 500-seed gauntlet using the
-exported ONNX files (via onnxruntime, the same kernels onnxruntime-web uses),
-then writes ``models/manifest.json`` and ``docs/checkpoints.md``.
+Runs every registered checkpoint through a deterministic 500-seed gauntlet
+using the exported ONNX files (via onnxruntime, the same kernels
+onnxruntime-web uses), then writes the enriched ``models/manifest.json`` (v2)
+and ``docs/checkpoints.md``.
 
 Reproduce:
 
@@ -17,15 +18,16 @@ import json
 from pathlib import Path
 
 import numpy as np
+import onnx
 import onnxruntime as ort
+from onnx import numpy_helper
 
 from mines import Game, N, encode_state
+from registry import MODELS, layers_for
 
-DEFAULT_CHECKPOINTS = [
-    ("m0", "Milestone 0 — baseline (uniform logits)", "models/policy-m0.onnx"),
-    ("m1", "Milestone 1 — imitation of basic solver", "models/policy-m1.onnx"),
-    ("m2", "Milestone 2 — imitation of subset solver", "models/policy-m2.onnx"),
-]
+# Frozen scoring contract (see POC v2 plan): points = safe cells revealed *
+# safe_reveal_points + (won ? win_bonus : 0).
+SCORING = {"safe_reveal_points": 1, "win_bonus": 50}
 
 
 def load_session(path: str) -> ort.InferenceSession:
@@ -37,8 +39,17 @@ def load_session(path: str) -> ort.InferenceSession:
     return sess
 
 
-def play(sess: ort.InferenceSession, seed: int, max_steps: int = 400) -> str:
-    """Play one deterministic game. Returns 'win' | 'mine' | 'stuck'."""
+def onnx_params(path: str) -> int:
+    """Count parameters as the sum of all initializer elements in the graph."""
+    model = onnx.load(path)
+    total = 0
+    for init in model.graph.initializer:
+        total += int(numpy_helper.to_array(init).size)
+    return total
+
+
+def play(sess: ort.InferenceSession, seed: int, max_steps: int = 400) -> dict:
+    """Play one deterministic game. Returns classification + score data."""
     game = Game(seed)
     inp = sess.get_inputs()[0].name
     out = sess.get_outputs()[0].name
@@ -47,29 +58,37 @@ def play(sess: ort.InferenceSession, seed: int, max_steps: int = 400) -> str:
         steps += 1
         legal = np.asarray(game.legal_mask(), dtype=np.float32)
         if not legal.any():
-            return "stuck"
+            break
         state = game.state()
         feats = encode_state(state["hidden"], state["revealed"], state["flagged"], state["counts"])
         logits = sess.run([out], {inp: feats.reshape(1, 8, 8, 8)})[0][0]
         masked = logits + (1.0 - legal) * -1e9
         action = int(np.argmax(masked))  # lowest-index tie-break
         if not legal[action]:
-            return "stuck"
+            break
         game.reveal(action)
     if game.won:
-        return "win"
-    return "mine" if game.hit_mine else "stuck"
+        result = "win"
+    elif game.hit_mine:
+        result = "mine"
+    else:
+        result = "stuck"
+    safe_reveals = game._revealed_count()
+    points = safe_reveals * SCORING["safe_reveal_points"] + (SCORING["win_bonus"] if game.won else 0)
+    return {"result": result, "safe_reveals": safe_reveals, "points": points}
 
 
 def evaluate(sess: ort.InferenceSession, seeds) -> dict:
-    wins = 0
-    mines = 0
-    stuck = 0
+    wins = mines = stuck = 0
+    total_safe = 0
+    total_points = 0
     for s in seeds:
         r = play(sess, s)
-        if r == "win":
+        total_safe += r["safe_reveals"]
+        total_points += r["points"]
+        if r["result"] == "win":
             wins += 1
-        elif r == "mine":
+        elif r["result"] == "mine":
             mines += 1
         else:
             stuck += 1
@@ -79,69 +98,130 @@ def evaluate(sess: ort.InferenceSession, seeds) -> dict:
         "wins": wins,
         "mine_hits": mines,
         "stuck": stuck,
+        "total_points": total_points,
         "win_rate": round(wins / n, 4),
         "mine_hit_rate": round(mines / n, 4),
+        "stuck_rate": round(stuck / n, 4),
+        "avg_safe_reveals": round(total_safe / n, 2),
     }
 
 
-def write_docs(path: str, rows, stats_by_id, seeds, version: str) -> None:
-    lines = []
-    lines.append("# Minesweeper policy checkpoints")
-    lines.append("")
-    lines.append(
-        "Fixed-seed evaluation of the ONNX policy milestones for the "
-        "**8x8 / 10-mine** board. All numbers are produced by "
-        "`tools/eval.py` using the exported models through `onnxruntime` "
-        "(the same kernels `onnxruntime-web` runs on-device)."
+def build_entry(spec: dict, stats: dict, params: int, size_bytes: int) -> dict:
+    return {
+        "id": spec["id"],
+        "label": spec["label"],
+        "family": spec["family"],
+        "method": spec["method"],
+        "file": spec["file"],
+        "description": spec["description"],
+        "architecture": {
+            "width": spec["arch"]["width"],
+            "layers": layers_for(spec),
+            "params": params,
+        },
+        "training": dict(spec["training"]),
+        "size_bytes": size_bytes,
+        "eval": {
+            "win_rate": stats["win_rate"],
+            "mine_hit_rate": stats["mine_hit_rate"],
+            "stuck_rate": stats["stuck_rate"],
+            "avg_safe_reveals": stats["avg_safe_reveals"],
+        },
+    }
+
+
+def write_docs(path: str, spec_by_id, stats_by_id, entries, seeds) -> None:
+    L = []
+    L.append("# Minesweeper policy checkpoints")
+    L.append("")
+    L.append(
+        "Fixed-seed evaluation of the **nine** ONNX policy variations for the "
+        "**8x8 / 10-mine** board. All numbers are produced by `tools/eval.py` "
+        "using the exported models through `onnxruntime` (the same kernels "
+        "`onnxruntime-web` runs on-device)."
     )
-    lines.append("")
-    lines.append("## Results")
-    lines.append("")
-    lines.append("| Checkpoint | Label | Win rate | Mine-hit rate | Wins / games |")
-    lines.append("| --- | --- | ---: | ---: | ---: |")
-    for r in rows:
-        stats = stats_by_id[r["id"]]
-        lines.append(
-            f"| `{r['id']}` | {r['label']} | {r['eval']['win_rate']:.4f} | "
-            f"{r['eval']['mine_hit_rate']:.4f} | {stats['wins']} / {stats['games']} |"
+    L.append("")
+    L.append("## Results")
+    L.append("")
+    L.append("| Checkpoint | Family | Win rate | Mine-hit | Stuck | Avg safe reveals | Params | Size |")
+    L.append("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+    for e in entries:
+        st = stats_by_id[e["id"]]
+        L.append(
+            f"| `{e['id']}` | {e['family']} | {st['win_rate']:.4f} | {st['mine_hit_rate']:.4f} | "
+            f"{st['stuck_rate']:.4f} | {st['avg_safe_reveals']:.2f} | {e['architecture']['params']:,} | "
+            f"{e['size_bytes'] / 1024:.1f} KiB |"
         )
-    lines.append("")
-    lines.append("## Protocol")
-    lines.append("")
-    lines.append(f"- **Seeds:** `{seeds[0]}..{seeds[-1]}` ({len(seeds)} fixed seeds), one full game per seed.")
-    lines.append("- **Board:** 8x8, 10 mines, generated **exactly** like `src/engine.js` — canonical `mulberry32(seed)`, lazy placement on the first reveal, forbidden set `{first} ∪ neighbors(first)`, rejection sampling (one draw per attempt). Verified bit-identical for seeds `1..500`.")
-    lines.append("- **First click is guaranteed safe:** the first cell and its neighbors are always mine-free (\"first-click safe\" cascade).")
-    lines.append("- **Play loop:** featurize -> ONNX forward -> masked softmax over legal cells -> argmax.")
-    lines.append("- **Action masking:** legal = `hidden & !flagged` (`hidden` = unrevealed and unflagged).")
-    lines.append("- **Determinism / tie-break:** `argmax` with the **lowest cell index** (row-major) wins ties. Given a (seed, checkpoint) the action sequence is fully reproducible.")
-    lines.append("- **win_rate** = games fully cleared / seeds. **mine_hit_rate** = games where a mine was revealed / seeds. `stuck` games (no legal move without a win) are counted as neither.")
-    lines.append("")
-    lines.append("## State contract (frozen)")
-    lines.append("")
-    lines.append("`state = { hidden:Uint8Array(64), revealed:Uint8Array(64), flagged:Uint8Array(64), counts:Int8Array(64) }`, index `r*8+c`.")
-    lines.append("`hidden[i]` is 1 only for cells that are **unrevealed AND unflagged**. `counts[i]` is 0 for hidden cells (no leakage).")
-    lines.append("")
-    lines.append("Channels (NCHW, `index = c*64 + i`): `0` hidden · `1` revealed · `2` flagged · `3` count/8 · `4` revealed-empty · `5` mines-remaining/hidden-count · `6` revealed-count/64 · `7` constant 1.")
-    lines.append("")
-    lines.append("## Reproduce")
-    lines.append("")
-    lines.append("```bash")
-    lines.append("python3 -m pip install -r tools/requirements.txt   # numpy, torch, onnx, onnxruntime")
-    lines.append("")
-    lines.append("# Baseline + trained milestones (fully seeded, CPU only):")
-    lines.append("python3 tools/train.py --stage m0 --out models/policy-m0.onnx")
-    lines.append("python3 tools/train.py --stage m1 --out models/policy-m1.onnx --games 2500 --epochs 40 --width 32 --lr 2e-3")
-    lines.append("python3 tools/train.py --stage m2 --out models/policy-m2.onnx --games 6000 --epochs 30 --width 48 --lr 2e-3")
-    lines.append("")
-    lines.append("# Fixed-seed evaluation table + manifest:")
-    lines.append("python3 tools/eval.py --seeds 500 --manifest models/manifest.json --docs docs/checkpoints.md")
-    lines.append("```")
-    lines.append("")
-    lines.append(f"Manifest version: `{version}`. ORT version pinned in `src/policy.js`: onnxruntime-web "
-                 "`1.19.2`, WASM backend single-threaded (`numThreads=1`) so it runs on GitHub Pages without COOP/COEP.")
-    lines.append("")
+    L.append("")
+    L.append(
+        "**Total points** (CONCURRENT score for these seeds, "
+        f"`{SCORING['safe_reveal_points']} pt/safe cell + {SCORING['win_bonus']} pt/win`): "
+        + ", ".join(f"`{e['id']}`={stats_by_id[e['id']]['total_points']:,}" for e in entries)
+        + "."
+    )
+    L.append("")
+    L.append("## Model details")
+    L.append("")
+    for e in entries:
+        spec = spec_by_id[e["id"]]
+        tr = spec["training"]
+        L.append(f"### `{e['id']}` — {e['label']}  ·  *{e['family']}*")
+        L.append("")
+        L.append(e["description"])
+        L.append("")
+        L.append(f"- **Method:** {e['method']}")
+        L.append(f"- **Architecture:** width `{spec['arch']['width']}`, depth `{spec['arch']['depth']}`, "
+                 f"kernel `{spec['arch']['kernel']}x{spec['arch']['kernel']}`; layers: "
+                 f"`{' -> '.join(e['architecture']['layers'])}`; params `{e['architecture']['params']:,}`.")
+        L.append(f"- **Training:** games `{tr['games']}`, epochs `{tr['epochs']}`, "
+                 f"lr `{tr['lr']}`, target `{tr['target']}`.")
+        if spec.get("train_seconds") is not None:
+            L.append(f"- **Train wall-clock:** ~{spec['train_seconds']}s on the current "
+                     f"10-vCPU build box (8 torch threads; board caps every cycle well "
+                     f"under 10 minutes).")
+        L.append(f"- **Reproduce:** `python3 tools/train.py --model {e['id']}`")
+        L.append("")
+    L.append("## Protocol")
+    L.append("")
+    L.append(f"- **Seeds:** `{seeds[0]}..{seeds[-1]}` ({len(seeds)} fixed seeds), one full game per seed.")
+    L.append("- **Board:** 8x8, 10 mines, generated **exactly** like `src/engine.js` — canonical `mulberry32(seed)`, lazy placement on the first reveal, forbidden set `{first} ∪ neighbors(first)`, rejection sampling (one draw per attempt). Verified bit-identical for seeds `1..500`.")
+    L.append("- **First click is guaranteed safe:** the first cell and its neighbors are always mine-free (\"first-click safe\" cascade).")
+    L.append("- **Play loop:** featurize -> ONNX forward -> masked argmax over legal cells.")
+    L.append("- **Action masking:** legal = `hidden & !flagged` (`hidden` = unrevealed and unflagged).")
+    L.append("- **Determinism / tie-break:** `argmax` with the **lowest cell index** (row-major) wins ties. Given a (seed, checkpoint) the action sequence is fully reproducible.")
+    L.append("- **win_rate** = cleared / seeds. **mine_hit_rate** = detonated / seeds. **stuck_rate** = no legal move and not won / seeds. **avg_safe_reveals** = mean safe cells revealed per game (54 = a full clear).")
+    L.append("")
+    L.append("## Scoring")
+    L.append("")
+    L.append(f"Frozen per-model score (POC v2): `points = safe_cells_revealed * {SCORING['safe_reveal_points']} "
+             f"+ (won ? {SCORING['win_bonus']} : 0)`. A detonation or stuck game ends with points earned so far.")
+    L.append("")
+    L.append("## State contract (frozen)")
+    L.append("")
+    L.append("`state = { hidden:Uint8Array(64), revealed:Uint8Array(64), flagged:Uint8Array(64), counts:Int8Array(64) }`, index `r*8+c`.")
+    L.append("`hidden[i]` is 1 only for cells that are **unrevealed AND unflagged**. `counts[i]` is 0 for hidden cells (no leakage).")
+    L.append("")
+    L.append("Channels (NCHW, `index = c*64 + i`): `0` hidden · `1` revealed · `2` flagged · `3` count/8 · `4` revealed-empty · `5` mines-remaining/hidden-count · `6` revealed-count/64 · `7` constant 1.")
+    L.append("")
+    L.append("## Reproduce")
+    L.append("")
+    L.append("```bash")
+    L.append("python3 -m pip install -r tools/requirements.txt   # numpy, torch, onnx, onnxruntime")
+    L.append("")
+    L.append("# Train all nine checkpoints (fully seeded, CPU only):")
+    L.append("python3 tools/train.py --all")
+    L.append("# …or a single model, e.g.:")
+    L.append("for m in m0 m1 m2 m3 m4 m5 m6 m7 m8; do python3 tools/train.py --model $m; done")
+    L.append("")
+    L.append("# Fixed-seed evaluation table + manifest v2 + docs:")
+    L.append("python3 tools/eval.py --seeds 500 --manifest models/manifest.json --docs docs/checkpoints.md")
+    L.append("```")
+    L.append("")
+    L.append("Manifest version: `2`. ORT version pinned in `src/policy.js`: onnxruntime-web "
+             "`1.19.2`, WASM backend single-threaded (`numThreads=1`) so it runs on GitHub Pages without COOP/COEP.")
+    L.append("")
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text("\n".join(lines) + "\n")
+    Path(path).write_text("\n".join(L) + "\n")
 
 
 def main() -> None:
@@ -150,49 +230,45 @@ def main() -> None:
     ap.add_argument("--seed-start", type=int, default=1)
     ap.add_argument("--manifest", default="models/manifest.json")
     ap.add_argument("--docs", default="docs/checkpoints.md")
-    ap.add_argument("--checkpoints", default="",
-                    help="optional comma list id:file overrides")
+    ap.add_argument("--models", default="", help="optional comma list of ids to restrict")
     args = ap.parse_args()
 
-    ckpts = list(DEFAULT_CHECKPOINTS)
-    if args.checkpoints:
-        ckpts = []
-        for part in args.checkpoints.split(","):
-            cid, label, file = part.split(":")
-            ckpts.append((cid, label, file))
-
+    wanted = [m for m in MODELS if not args.models or m["id"] in args.models.split(",")]
     seeds = list(range(args.seed_start, args.seed_start + args.seeds))
-    rows = []
-    stats_by_id = {}
-    for cid, label, file in ckpts:
-        if not Path(file).exists():
-            raise FileNotFoundError(f"missing checkpoint {file}; run tools/train.py first")
-        sess = load_session(file)
+
+    entries, stats_by_id, spec_by_id = [], {}, {}
+    for spec in wanted:
+        path = spec["file"]
+        if not Path(path).exists():
+            raise FileNotFoundError(f"missing checkpoint {path}; run tools/train.py --all first")
+        size_bytes = Path(path).stat().st_size
+        params = onnx_params(path)
+        sess = load_session(path)
         stats = evaluate(sess, seeds)
-        stats_by_id[cid] = stats
-        row = {
-            "id": cid,
-            "label": label,
-            "file": file,
-            "eval": {"win_rate": stats["win_rate"], "mine_hit_rate": stats["mine_hit_rate"]},
-        }
-        rows.append(row)
-        print(f"[eval] {cid}: win_rate={stats['win_rate']:.4f} "
-              f"mine_hit_rate={stats['mine_hit_rate']:.4f} "
-              f"(wins={stats['wins']}, mines={stats['mine_hits']}, stuck={stats['stuck']})")
+        stats_by_id[spec["id"]] = stats
+        spec_by_id[spec["id"]] = spec
+        entries.append(build_entry(spec, stats, params, size_bytes))
+        print(f"[eval] {spec['id']} ({spec['family']}): win={stats['win_rate']:.4f} "
+              f"mine={stats['mine_hit_rate']:.4f} stuck={stats['stuck_rate']:.4f} "
+              f"safe={stats['avg_safe_reveals']:.2f} pts={stats['total_points']} "
+              f"params={params} size={size_bytes}B", flush=True)
+
+    if len(entries) != 9:
+        print(f"[eval] WARNING: expected 9 checkpoints, got {len(entries)}")
 
     manifest = {
-        "version": 1,
+        "version": 2,
         "board": {"h": 8, "w": 8, "mines": 10},
         "input": {"shape": [1, 8, 8, 8], "layout": "nchw"},
         "output": {"shape": [1, 64], "type": "logits"},
-        "checkpoints": rows,
+        "scoring": dict(SCORING),
+        "checkpoints": entries,
     }
     Path(args.manifest).parent.mkdir(parents=True, exist_ok=True)
     Path(args.manifest).write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
     print(f"[eval] wrote {args.manifest}")
 
-    write_docs(args.docs, rows, stats_by_id, seeds, manifest["version"])
+    write_docs(args.docs, spec_by_id, stats_by_id, entries, seeds)
     print(f"[eval] wrote {args.docs}")
 
 
