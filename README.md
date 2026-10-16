@@ -1,6 +1,6 @@
 # mines-livive-net
 
-An in-browser retro arcade cabinet running Reinforcement Learning policies on a discrete 8x8 Minesweeper engine. Race human intuition against ONNX-exported checkpoints across training milestones with live action-masking and deterministic board seeds.
+An in-browser retro arcade cabinet running Reinforcement Learning policies on a discrete 8x8 Minesweeper engine. Race human intuition against ONNX-exported checkpoints across training milestones with live action-masking and deterministic board seeds. The v2 library ships **nine** documented checkpoints across four families and five modes: **PLAY**, **AI**, **RACE**, **CONCURRENT**, and **MODELS**.
 
 **Live:** https://mines.livive.net/
 
@@ -23,6 +23,41 @@ python3 -m http.server 8080
 ```
 
 Optional pinned query string for a reproducible board: `/?seed=12345`.
+
+## Modes
+
+| Tab | What it does |
+| --- | --- |
+| **PLAY** | You clear a seeded 8×8/10 board (first click is always safe). |
+| **AI** | The selected checkpoint plays the same seed with live confidence, per-cell distribution, and legal-action mask. |
+| **RACE** | You vs the checkpoint on the identical seed, side by side, with an outcome comparison. |
+| **CONCURRENT** | Every checkpoint in the library plays the same `?seed=` board in lockstep, with a CLEARED/DETONATED/STUCK scoreboard and a points-sorted leaderboard. |
+| **MODELS** | Details for every manifest checkpoint: family, method, architecture, training recipe, file size, and fixed-seed evaluation. |
+
+Scores come from `manifest.scoring` when present, else the documented default:
+`1 pt` per safely revealed cell plus a `50 pt` win bonus.
+
+## Model library (v2)
+
+Nine ONNX checkpoints across four families, documented in
+[`docs/checkpoints.md`](docs/checkpoints.md) and the live MODELS tab:
+
+| ID | Family | Method | Win rate |
+| --- | --- | --- | ---: |
+| `m0` | baseline | Uniform (zero logits) | 0.0% |
+| `m1` | solver-imitation | Behaviour cloning (basic solver) | 28.8% |
+| `m2` | solver-imitation | Behaviour cloning (subset solver) | 56.4% |
+| `m3` | solver-imitation | Behaviour cloning (subset, wide + deep) | 61.4% |
+| `m4` | solver-imitation | Behaviour cloning (basic, long schedule) | 36.0% |
+| `m5` | rl | REINFORCE (win reward) | 57.4% |
+| `m6` | rl | REINFORCE (detonation-averse) | 57.8% |
+| `m7` | ablation | Behaviour cloning (5×5 kernels) | 51.0% |
+| `m8` | ablation | Behaviour cloning (single conv) | 11.8% |
+
+`models/manifest.json` is the single source of truth: `version: 2` plus a
+`checkpoints[]` array whose `file` paths drive both the app and the smoke
+workflow. The frozen state contract (`src/featurize.js`, `src/policy.js`,
+`src/engine.js` board/seed generation) is unchanged.
 
 ## Deploy
 
@@ -51,7 +86,7 @@ dropped. Do not remove it. `CNAME` holds the custom domain; `404.html` is served
 on demand. It asserts, from outside the repo:
 
 - `https://mines.livive.net/` is **200** and **byte-identical to the committed `index.html`** (i.e. the app, not the README);
-- `models/manifest.json` is 200 and lists checkpoints; every `models/policy-*.onnx` is 200;
+- `models/manifest.json` is 200, parses as **v2** (`version: 2`) with exactly **9** unique checkpoints, and **every** checkpoint `file` is 200;
 - the full ES module graph (`src/app.js` → `engine.js`/`ui.js`/`contract.js`/`featurize.js`/`policy.js`/`stub/*`) and `src/style.css` are 200;
 - the pinned onnxruntime-web CDN runtime (`ort.wasm.min.mjs`, `ort-wasm-simd-threaded.wasm`) is 200;
 - unknown paths return **404**.
