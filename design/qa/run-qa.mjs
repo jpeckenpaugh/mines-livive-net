@@ -131,6 +131,15 @@ async function main() {
     ['yellow on panel', tokens.yellow, tokens.panel, 4.5],
     ['red on panel', tokens.red, tokens.panel, 4.5],
     ['tab active txt on #ff9f43', '#05050c', '#ff9f43', 4.5],
+    // --- v2 surfaces: MODELS cards + CONCURRENT scoreboard/leaderboard ---
+    ['yellow on panel (score-value)', tokens.yellow, tokens.panel, 4.5],
+    ['green on panel (cleared)', tokens.green, tokens.panel, 4.5],
+    ['red on panel (detonated)', tokens.red, tokens.panel, 4.5],
+    ['cyan on panel (cc-id/family)', tokens.cyan, tokens.panel, 4.5],
+    ['ink on panel (cc-points/model rows)', tokens.ink, tokens.panel, 4.5],
+    ['muted on panel (model labels/status)', tokens.muted, tokens.panel, 4.5],
+    ['muted on panel-2 (leader stat)', tokens.muted, tokens.panel2, 4.5],
+    ['ink on panel-2 (leader name)', tokens.ink, tokens.panel2, 4.5],
   ];
   const contrast = [];
   for (const [name, fg, bg, min] of pairs) {
@@ -166,7 +175,7 @@ async function main() {
   report.dom = dom;
   rec('a11y.html-lang', dom.lang === 'en', `lang="${dom.lang}"`);
   rec('a11y.zoom-allowed', !/user-scalable\s*=\s*no|maximum-scale\s*=\s*1\b/.test(dom.viewport || ''), `viewport="${dom.viewport}"`);
-  rec('a11y.board-grid-semantics', dom.gridRole === 'grid' && dom.tabCount === 3, `role=${dom.gridRole}`);
+  rec('a11y.board-grid-semantics', dom.gridRole === 'grid' && dom.tabCount === 5, `role=${dom.gridRole}, ${dom.tabCount} mode tabs`);
   const external = dom.links.filter((l) => l.target === '_blank');
   rec('a11y.no-new-tab-ambiguity', external.length === 0, `${external.length} target=_blank link(s)`);
 
@@ -261,14 +270,18 @@ async function main() {
   // checkpoint selector cycles m0/m1/m2
   const ckpts = await page.$$eval('#checkpoint option', (o) => o.map((x) => x.value));
   report.checkpoints = ckpts;
-  let ckptOk = ckpts.length >= 3;
+  let ckptOk = ckpts.length === 9;
   const ckptDetail = [];
   for (const id of ckpts) {
     await page.selectOption('#checkpoint', id);
     await page.waitForTimeout(400);
     await page.click('#ai-reset');
     await page.click('#ai-step');
-    await page.waitForTimeout(1200);
+    // Larger checkpoints (m3/m7 ~350 KB) take longer than 1.2s to run one ORT
+    // inference, so wait for the async act() to publish an action.
+    await page
+      .waitForFunction(() => document.getElementById('ai-action').textContent.trim() !== '—', { timeout: 15000 })
+      .catch(() => {});
     const st = await page.evaluate(() => ({
       action: document.getElementById('ai-action').textContent.trim(),
       confidence: document.getElementById('ai-confidence').textContent.trim(),
@@ -295,6 +308,280 @@ async function main() {
   report.race = raceState;
   await page.screenshot({ path: `${OUT}/desktop-race.png`, fullPage: true });
   rec('race.mode-renders', raceState.humanCells === 64 && raceState.aiCells === 64 && /moves/.test(raceState.humanHud), JSON.stringify(raceState));
+
+  // ---------- v2: MODELS details panel ----------
+  // Cross-check the deployed manifest against what the panel renders.
+  const manifest = await page.evaluate(async () => {
+    const res = await fetch('models/manifest.json', { cache: 'no-store' });
+    return res.ok ? res.json() : null;
+  });
+  report.manifest = manifest
+    ? { version: manifest.version, checkpoints: manifest.checkpoints.map((c) => c.id) }
+    : null;
+
+  const fmtBytes = (n) => {
+    if (!Number.isFinite(n)) return '—';
+    if (n < 1024) return `${n} B`;
+    const kb = n / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    return `${(kb / 1024).toFixed(2)} MB`;
+  };
+
+  await page.click('.tab[data-mode="models"]');
+  await page.waitForSelector('#models-list .model-card', { timeout: 10000 });
+  await page
+    .waitForFunction(() => document.querySelectorAll('#models-list .model-card').length >= 9, { timeout: 10000 })
+    .catch(() => {});
+  await page.screenshot({ path: `${OUT}/desktop-models.png`, fullPage: true });
+
+  const models = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('#models-list .model-card')];
+    return {
+      count: cards.length,
+      note: document.getElementById('models-note').textContent.trim(),
+      panelHidden: document.getElementById('panel-models').hidden,
+      role: document.getElementById('panel-models').getAttribute('role'),
+      labelledby: document.getElementById('panel-models').getAttribute('aria-labelledby'),
+      listRole: document.getElementById('models-list').getAttribute('role'),
+      listItems: document.querySelectorAll('#models-list [role="listitem"]').length,
+      entries: cards.map((card) => {
+        const rows = {};
+        for (const row of card.querySelectorAll('.model-row')) {
+          const k = row.querySelector('dt')?.textContent.trim();
+          if (k) rows[k] = row.querySelector('dd')?.textContent.trim() || '';
+        }
+        return {
+          id: card.querySelector('.model-id')?.textContent.trim() || '',
+          label: card.querySelector('.model-label')?.textContent.trim() || '',
+          family: card.querySelector('.model-family')?.textContent.trim() || '',
+          desc: card.querySelector('.model-desc')?.textContent.trim() || '',
+          rows,
+          current: card.getAttribute('aria-current') === 'true',
+        };
+      }),
+    };
+  });
+  report.models = models;
+
+  rec(
+    'models.nine-checkpoints',
+    models.count === 9 && (!manifest || manifest.checkpoints.length === 9),
+    `rendered ${models.count} cards; manifest ${report.manifest ? report.manifest.version : '?'} lists ${report.manifest ? report.manifest.checkpoints.length : '?'}`,
+  );
+
+  // Every card must expose label/family/description/architecture/training/size/eval.
+  const required = ['Family', 'Architecture', 'Training', 'File size', 'Eval'];
+  const fieldGaps = [];
+  for (const e of models.entries) {
+    for (const k of required) if (!e.rows[k] || e.rows[k] === '—') fieldGaps.push(`${e.id}:${k}`);
+    if (!e.label || !e.family || !e.desc) fieldGaps.push(`${e.id}:header`);
+  }
+  rec('models.all-fields-present', fieldGaps.length === 0, fieldGaps.length ? JSON.stringify(fieldGaps) : 'label/family/desc + 5 meta rows on all 9 cards');
+
+  // Values must match the deployed manifest (not placeholders).
+  const valueGaps = [];
+  if (manifest) {
+    for (const ckpt of manifest.checkpoints) {
+      const e = models.entries.find((x) => x.id === ckpt.id);
+      if (!e) { valueGaps.push(`${ckpt.id}:missing-card`); continue; }
+      if (e.label !== ckpt.label) valueGaps.push(`${ckpt.id}:label`);
+      if (e.family !== ckpt.family) valueGaps.push(`${ckpt.id}:family`);
+      if (e.desc !== ckpt.description) valueGaps.push(`${ckpt.id}:description`);
+      if (e.rows['File size'] !== fmtBytes(ckpt.size_bytes)) valueGaps.push(`${ckpt.id}:size`);
+      const arch = e.rows['Architecture'] || '';
+      if (!arch.includes(`width ${ckpt.architecture.width}`) || !arch.includes(ckpt.architecture.params.toLocaleString())) valueGaps.push(`${ckpt.id}:arch`);
+      const tr = e.rows['Training'] || '';
+      if (!tr.includes(`${ckpt.training.games.toLocaleString()} games`) || !tr.includes(`${ckpt.training.epochs} epochs`)) valueGaps.push(`${ckpt.id}:training`);
+      const ev = e.rows['Eval'] || '';
+      if (!ev.includes(`win ${(ckpt.eval.win_rate * 100).toFixed(1)}%`)) valueGaps.push(`${ckpt.id}:eval`);
+    }
+  }
+  rec('models.values-match-manifest', valueGaps.length === 0, valueGaps.length ? JSON.stringify(valueGaps) : '9/9 cards match manifest v2 byte/arch/training/eval values');
+
+  // Content is reachable by keyboard: arrow through the tablist to MODELS.
+  await page.click('.tab[data-mode="play"]');
+  await page.waitForTimeout(120);
+  await page.focus('.tab[data-mode="play"]');
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+  const kbModels = await page.evaluate(() => ({
+    focused: document.activeElement?.dataset?.mode,
+    hidden: document.getElementById('panel-models').hidden,
+    cards: document.querySelectorAll('#models-list .model-card').length,
+  }));
+  rec(
+    'models.keyboard-reachable',
+    kbModels.focused === 'models' && kbModels.hidden === false && kbModels.cards >= 9,
+    `ArrowRight x4 -> focus=${kbModels.focused}, panel hidden=${kbModels.hidden}, ${kbModels.cards} cards exposed`,
+  );
+  rec(
+    'models.aria-structure',
+    models.role === 'tabpanel' && models.listRole === 'list' && models.listItems === 9,
+    `panel role=${models.role} labelledby=${models.labelledby}, list role=${models.listRole}, ${models.listItems} listitems`,
+  );
+
+  // ---------- v2: CONCURRENT mode ----------
+  async function waitConcurrentReady(p, ms = 30000) {
+    await p.waitForFunction(() => document.querySelectorAll('#concurrent-grid .concurrent-card').length >= 9, { timeout: 15000 }).catch(() => {});
+    await p
+      .waitForFunction(() => {
+        const cs = [...document.querySelectorAll('#concurrent-grid .concurrent-card')];
+        return cs.length >= 9 && cs.every((c) => c.dataset.status !== 'loading');
+      }, { timeout: ms })
+      .catch(() => {});
+  }
+
+  async function setFastSpeed(p) {
+    await p.$eval('#concurrent-speed', (el) => {
+      el.value = '1000';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  await page.click('.tab[data-mode="concurrent"]');
+  await waitConcurrentReady(page);
+  await setFastSpeed(page);
+
+  const concBuilt = await page.evaluate(() => ({
+    cards: document.querySelectorAll('#concurrent-grid .concurrent-card').length,
+    boards: document.querySelectorAll('#concurrent-grid .cc-board').length,
+    cells: document.querySelectorAll('#concurrent-grid .cc-board .cell').length,
+    statuses: [...document.querySelectorAll('#concurrent-grid .cc-status')].map((s) => s.textContent.trim()),
+    total: document.getElementById('concurrent-total').textContent.trim(),
+  }));
+  report.concurrentBuilt = concBuilt;
+  rec(
+    'concurrent.nine-boards',
+    concBuilt.cards === 9 && concBuilt.boards === 9 && concBuilt.cells === 9 * 64,
+    `${concBuilt.cards} cards, ${concBuilt.boards} boards, ${concBuilt.cells} cells (9 x 64)`,
+  );
+  rec(
+    'concurrent.policies-loaded',
+    concBuilt.statuses.length === 9 && concBuilt.statuses.every((s) => s !== 'LOADING' && s !== 'ERROR'),
+    JSON.stringify(concBuilt.statuses),
+  );
+
+  await page.click('#concurrent-start');
+  await page.waitForTimeout(900);
+  const stepA = await page.evaluate(() => ({
+    stats: [...document.querySelectorAll('#concurrent-grid .cc-stats')].map((s) => s.textContent.trim()),
+    total: document.getElementById('concurrent-total').textContent.trim(),
+  }));
+  await page.waitForTimeout(1600);
+  const stepB = await page.evaluate(() => ({
+    stats: [...document.querySelectorAll('#concurrent-grid .cc-stats')].map((s) => s.textContent.trim()),
+    total: document.getElementById('concurrent-total').textContent.trim(),
+  }));
+  const advanced = stepA.stats.some((v, i) => v !== stepB.stats[i]);
+  rec(
+    'concurrent.stepping-advances',
+    advanced,
+    advanced ? `per-model stats advanced (e.g. ${stepA.stats[0]} -> ${stepB.stats[0]})` : 'no per-model advancement observed',
+  );
+  report.concurrentStep = { stepA, stepB };
+
+  await page
+    .waitForFunction(() => {
+      const cs = [...document.querySelectorAll('#concurrent-grid .concurrent-card')];
+      return cs.length === 9 && cs.every((c) => ['cleared', 'detonated', 'stuck', 'error'].includes(c.dataset.status));
+    }, { timeout: 90000 })
+    .catch(() => {});
+
+  const conc = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('#concurrent-grid .concurrent-card')];
+    const per = cards.map((c) => ({
+      id: c.querySelector('.cc-id').textContent.trim(),
+      status: c.querySelector('.cc-status').textContent.trim(),
+      datasetStatus: c.dataset.status,
+      stats: c.querySelector('.cc-stats').textContent.trim(),
+      points: Number(c.querySelector('.cc-points').textContent.trim()),
+      aria: c.getAttribute('aria-label') || '',
+      statusColor: getComputedStyle(c.querySelector('.cc-status')).color,
+      statusFont: getComputedStyle(c.querySelector('.cc-status')).fontSize,
+    }));
+    const num = (id) => Number(document.getElementById(id).textContent.replace(/[^0-9-]/g, ''));
+    const totalEl = document.getElementById('concurrent-total');
+    return {
+      per,
+      counts: { cleared: num('concurrent-cleared'), detonated: num('concurrent-detonated'), stuck: num('concurrent-stuck') },
+      total: num('concurrent-total'),
+      totalText: totalEl.textContent.trim(),
+      totalFont: getComputedStyle(totalEl).fontSize,
+      totalColor: getComputedStyle(totalEl).color,
+      sumPoints: per.reduce((a, c) => a + c.points, 0),
+      leaderRows: document.querySelectorAll('#concurrent-leaderboard .leader-row').length,
+      leaderStats: [...document.querySelectorAll('#concurrent-leaderboard .leader-stat')].map((s) => s.textContent.trim()),
+      live: document.getElementById('concurrent-live').textContent.trim(),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  report.concurrent = conc;
+
+  const settled = conc.per.length === 9 && conc.per.every((c) => ['cleared', 'detonated', 'stuck', 'error'].includes(c.datasetStatus));
+  const countSum = conc.counts.cleared + conc.counts.detonated + conc.counts.stuck;
+  rec(
+    'concurrent.final-classification',
+    settled && countSum === 9,
+    settled ? `cleared ${conc.counts.cleared} / detonated ${conc.counts.detonated} / stuck ${conc.counts.stuck}` : 'not all 9 models settled',
+  );
+  rec(
+    'concurrent.total-points-correct',
+    conc.total === conc.sumPoints && conc.sumPoints > 0,
+    `TOTAL POINTS ${conc.totalText} == sum of per-model ${conc.sumPoints}`,
+  );
+  const wonOk = conc.per.filter((c) => c.datasetStatus === 'cleared').every((c) => c.points >= 50);
+  rec(
+    'concurrent.points-include-win-bonus',
+    wonOk,
+    wonOk ? 'every cleared model scored >= 50 (win bonus applied)' : 'cleared model missing win bonus',
+  );
+  const leaderSorted = conc.leaderRows === 9 && conc.leaderStats.length === 9;
+  rec('concurrent.leaderboard-renders', leaderSorted, `${conc.leaderRows} leaderboard rows`);
+  const totalLegible = parseFloat(conc.totalFont) >= 24;
+  rec(
+    'concurrent.total-legible',
+    totalLegible,
+    `TOTAL POINTS font-size ${conc.totalFont}, color ${conc.totalColor}`,
+  );
+  rec(
+    'concurrent.states-announced',
+    conc.per.every((c) => /:\s*(LOADING|READY|RUNNING|CLEARED|DETONATED|STUCK|ERROR|STUB),/.test(c.aria)) || conc.per.every((c) => c.aria.includes(c.status)),
+    'per-card aria-label carries model name + status',
+  );
+  await page.screenshot({ path: `${OUT}/desktop-concurrent-done.png`, fullPage: true });
+
+  // Deterministic outcome for a fixed ?seed= (two fresh contexts).
+  async function concurrentOutcome(seed) {
+    const c = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await newPage(c, { console: [], pageErrors: [], requestFailed: [], warnings: [] }, { seed });
+    await p.click('.tab[data-mode="concurrent"]');
+    await waitConcurrentReady(p);
+    await setFastSpeed(p);
+    await p.click('#concurrent-start');
+    await p
+      .waitForFunction(() => {
+        const cs = [...document.querySelectorAll('#concurrent-grid .concurrent-card')];
+        return cs.length === 9 && cs.every((x) => ['cleared', 'detonated', 'stuck', 'error'].includes(x.dataset.status));
+      }, { timeout: 90000 })
+      .catch(() => {});
+    const out = await p.evaluate(() => ({
+      total: document.getElementById('concurrent-total').textContent.trim(),
+      per: [...document.querySelectorAll('#concurrent-grid .concurrent-card')]
+        .map((c) => `${c.querySelector('.cc-id').textContent.trim()}:${c.dataset.status}:${c.querySelector('.cc-points').textContent.trim()}`)
+        .join('|'),
+    }));
+    await p.close();
+    await c.close();
+    return out;
+  }
+  const detA = await concurrentOutcome(4242);
+  const detB = await concurrentOutcome(4242);
+  const deterministic = detA.per.length > 0 && detA.per === detB.per && detA.total === detB.total;
+  report.concurrentDeterminism = { seed: 4242, a: detA, b: detB, deterministic };
+  rec(
+    'concurrent.deterministic-seed',
+    deterministic,
+    deterministic ? `seed=4242 reproducible: ${detA.per}` : 'seed=4242 outcome differed between runs',
+  );
 
   report.desktopErrors = bag;
 
@@ -335,6 +622,51 @@ async function main() {
   }));
   report.mobile = { tap: mAfter, overflow: mOverflow, errors: mbag };
   rec('mobile.no-horizontal-overflow', mOverflow.scrollW <= mOverflow.clientW + 2, `scrollW=${mOverflow.scrollW} clientW=${mOverflow.clientW}`);
+
+  // ---------- mobile: MODELS panel (readable at 390x844) ----------
+  await mp.click('.tab[data-mode="models"]');
+  await mp.waitForTimeout(400);
+  await mp.screenshot({ path: `${OUT}/mobile-models.png`, fullPage: true });
+  const mModels = await mp.evaluate(() => {
+    const cards = [...document.querySelectorAll('#models-list .model-card')];
+    const vw = document.documentElement.clientWidth;
+    return {
+      count: cards.length,
+      vw,
+      widest: cards.length ? Math.max(...cards.map((c) => c.getBoundingClientRect().width)) : 0,
+      overflow: document.documentElement.scrollWidth - vw,
+      descFont: cards[0] ? getComputedStyle(cards[0].querySelector('.model-desc')).fontSize : null,
+    };
+  });
+  report.mobileModels = mModels;
+  rec(
+    'models.mobile-readable',
+    mModels.count === 9 && mModels.widest <= mModels.vw + 1 && mModels.overflow <= 2,
+    `9 cards, widest ${Math.round(mModels.widest)}px <= viewport ${mModels.vw}px, overflow ${mModels.overflow}px`,
+  );
+
+  // ---------- mobile: CONCURRENT mode ----------
+  await mp.click('.tab[data-mode="concurrent"]');
+  await waitConcurrentReady(mp);
+  await setFastSpeed(mp);
+  await mp.click('#concurrent-start');
+  await mp.waitForTimeout(2500);
+  await mp.screenshot({ path: `${OUT}/mobile-concurrent.png`, fullPage: true });
+  const mConc = await mp.evaluate(() => ({
+    cards: document.querySelectorAll('#concurrent-grid .concurrent-card').length,
+    cols: getComputedStyle(document.getElementById('concurrent-grid')).gridTemplateColumns,
+    statusFont: document.querySelector('#concurrent-grid .cc-status')
+      ? getComputedStyle(document.querySelector('#concurrent-grid .cc-status')).fontSize
+      : null,
+    totalFont: getComputedStyle(document.getElementById('concurrent-total')).fontSize,
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  }));
+  report.mobileConcurrent = mConc;
+  rec(
+    'concurrent.mobile-no-horizontal-overflow',
+    mConc.cards === 9 && mConc.overflow <= 2,
+    `9 cards, grid cols=${mConc.cols}, status ${mConc.statusFont}, overflow ${mConc.overflow}px`,
+  );
 
   // ---------- reduced motion ----------
   const rbag = { console: [], pageErrors: [], requestFailed: [], warnings: [] };

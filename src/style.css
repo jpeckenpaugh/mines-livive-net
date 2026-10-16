@@ -777,7 +777,7 @@ input[type='range'] {
 }
 
 .model-family {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--cyan);
@@ -810,7 +810,7 @@ input[type='range'] {
 
 .model-row dt {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding-top: 2px;
@@ -964,15 +964,16 @@ input[type='range'] {
 .cc-line {
   margin: 0;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  gap: 2px 8px;
   font-size: 10px;
   color: var(--muted);
 }
 
 .cc-status {
   font-family: var(--font-pixel);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--muted);
 }
 

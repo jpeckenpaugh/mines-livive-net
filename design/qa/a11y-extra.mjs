@@ -22,8 +22,13 @@ out.afterEnter = await p.evaluate(() => ({
   status: document.getElementById('play-status').textContent.trim(),
   revealed: document.querySelectorAll('#play-board .cell.revealed').length,
 }));
-const idx = await p.evaluate(() => [...document.querySelectorAll('#play-board .cell')].findIndex((c) => c.tabIndex === 0));
-await p.focus(`#play-board .cell[data-index="${idx}"]`);
+// Flag a still-hidden cell (the Enter cursor may already be revealed).
+const hiddenIdx = await p.evaluate(() =>
+  [...document.querySelectorAll('#play-board .cell')].findIndex(
+    (c) => !c.classList.contains('revealed') && !c.classList.contains('flagged'),
+  ),
+);
+await p.focus(`#play-board .cell[data-index="${hiddenIdx}"]`);
 await p.keyboard.press('f');
 await p.waitForTimeout(120);
 out.afterFlag = await p.evaluate(() => ({
@@ -93,6 +98,63 @@ out.clockMutatePerSec = await p.evaluate(
       }, 1200);
     }),
 );
+// ---- v2: MODELS details panel ----
+await p.click('.tab[data-mode="models"]');
+await p.waitForTimeout(250);
+out.models = await p.evaluate(() => ({
+  cards: document.querySelectorAll('#models-list .model-card').length,
+  listRole: document.getElementById('models-list').getAttribute('role'),
+  listItems: document.querySelectorAll('#models-list [role="listitem"]').length,
+  current: document.querySelectorAll('#models-list .model-card[aria-current="true"]').length,
+  descFont: getComputedStyle(document.querySelector('#models-list .model-desc')).fontSize,
+  smallestFont: Math.min(
+    ...[...document.querySelectorAll('#models-list *')]
+      .map((e) => parseFloat(getComputedStyle(e).fontSize))
+      .filter((n) => n > 0),
+  ),
+}));
+
+// ---- v2: CONCURRENT mode (non-interactive boards, live-region chatter) ----
+await p.click('.tab[data-mode="concurrent"]');
+await p
+  .waitForFunction(() => document.querySelectorAll('#concurrent-grid .concurrent-card').length >= 9)
+  .catch(() => {});
+out.concurrent = await p.evaluate(() => ({
+  cards: document.querySelectorAll('#concurrent-grid .concurrent-card').length,
+  focusableCells: [...document.querySelectorAll('#concurrent-grid .cell')].filter((c) => c.tabIndex >= 0).length,
+  live: document.getElementById('concurrent-live').getAttribute('aria-live'),
+  statusFont: getComputedStyle(document.querySelector('#concurrent-grid .cc-status')).fontSize,
+}));
+await p.$eval('#concurrent-speed', (el) => {
+  el.value = '1000';
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+});
+await p.click('#concurrent-start');
+out.concurrentLiveMutatePerSec = await p.evaluate(
+  () =>
+    new Promise((res) => {
+      const el = document.getElementById('concurrent-live');
+      let n = 0;
+      const mo = new MutationObserver((ms) => (n += ms.length));
+      mo.observe(el, { subtree: true, characterData: true, childList: true });
+      setTimeout(() => {
+        mo.disconnect();
+        res(n);
+      }, 1200);
+    }),
+);
+
+// ---- v2: touch target sizing (WCAG 2.5.8 target >= 24px) ----
+out.touch = await p.evaluate(() => {
+  const box = (sel) => {
+    const e = document.querySelector(sel);
+    if (!e) return null;
+    const r = e.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  };
+  return { tab: box('.tab'), concurrentStart: box('#concurrent-start'), concurrentReset: box('#concurrent-reset') };
+});
+
 // color-scheme / native control rendering hint
 out.colorScheme = await p.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
 out.themeColor = await p.evaluate(() => document.querySelector('meta[name=theme-color]')?.content);
