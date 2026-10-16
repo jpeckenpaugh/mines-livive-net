@@ -1,6 +1,6 @@
 {
   "base": "https://mines.livive.net",
-  "startedAt": "2026-10-15T20:19:24.031Z",
+  "startedAt": "2026-10-16T01:18:58.361Z",
   "console": [],
   "checks": [
     {
@@ -24,7 +24,7 @@
     {
       "name": "a11y.board-grid-semantics",
       "pass": true,
-      "detail": "role=grid",
+      "detail": "role=grid, 5 mode tabs",
       "evidence": null
     },
     {
@@ -78,13 +78,109 @@
     {
       "name": "ai.checkpoint-selector",
       "pass": true,
-      "detail": "[{\"id\":\"m0\",\"action\":\"A1\",\"confidence\":\"1.6%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m1\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m2\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"}]",
+      "detail": "[{\"id\":\"m0\",\"action\":\"A1\",\"confidence\":\"1.6%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m1\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m2\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m3\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m4\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m5\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m6\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m7\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"},{\"id\":\"m8\",\"action\":\"A1\",\"confidence\":\"100.0%\",\"badge\":\"ONNX checkpoints live\"}]",
       "evidence": null
     },
     {
       "name": "race.mode-renders",
       "pass": true,
-      "detail": "{\"humanHud\":\"READY · 10 mines · 0 moves · 00:03\",\"aiHud\":\"PLAYING · 10 mines · 10 moves · 00:03\",\"result\":\"\",\"humanCells\":64,\"aiCells\":64}",
+      "detail": "{\"humanHud\":\"READY · 10 mines · 0 moves · 00:00\",\"aiHud\":\"READY · 10 mines · 0 moves · 00:00\",\"result\":\"\",\"humanCells\":64,\"aiCells\":64}",
+      "evidence": null
+    },
+    {
+      "name": "models.nine-checkpoints",
+      "pass": true,
+      "detail": "rendered 9 cards; manifest 2 lists 9",
+      "evidence": null
+    },
+    {
+      "name": "models.all-fields-present",
+      "pass": true,
+      "detail": "label/family/desc + 5 meta rows on all 9 cards",
+      "evidence": null
+    },
+    {
+      "name": "models.values-match-manifest",
+      "pass": true,
+      "detail": "9/9 cards match manifest v2 byte/arch/training/eval values",
+      "evidence": null
+    },
+    {
+      "name": "models.keyboard-reachable",
+      "pass": true,
+      "detail": "ArrowRight x4 -> focus=models, panel hidden=false, 9 cards exposed",
+      "evidence": null
+    },
+    {
+      "name": "models.aria-structure",
+      "pass": true,
+      "detail": "panel role=tabpanel labelledby=tab-models, list role=list, 9 listitems",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.nine-boards",
+      "pass": true,
+      "detail": "9 cards, 9 boards, 576 cells (9 x 64)",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.policies-loaded",
+      "pass": true,
+      "detail": "[\"READY\",\"READY\",\"READY\",\"READY\",\"READY\",\"READY\",\"READY\",\"READY\",\"READY\"]",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.stepping-advances",
+      "pass": true,
+      "detail": "per-model stats advanced (e.g. 2 moves · 14 pts -> 2 moves · 14 pts)",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.final-classification",
+      "pass": true,
+      "detail": "cleared 0 / detonated 9 / stuck 0",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.total-points-correct",
+      "pass": true,
+      "detail": "TOTAL POINTS 291 == sum of per-model 291",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.points-include-win-bonus",
+      "pass": true,
+      "detail": "every cleared model scored >= 50 (win bonus applied)",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.leaderboard-renders",
+      "pass": true,
+      "detail": "9 leaderboard rows",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.total-legible",
+      "pass": true,
+      "detail": "TOTAL POINTS font-size 40px, color rgb(255, 210, 63)",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.states-announced",
+      "pass": true,
+      "detail": "per-card aria-label carries model name + status",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.deterministic-seed",
+      "pass": true,
+      "detail": "seed=4242 reproducible: m0:detonated:22|m1:detonated:53|m2:cleared:104|m3:cleared:104|m4:detonated:52|m5:detonated:52|m6:cleared:104|m7:detonated:52|m8:detonated:50",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.pre-manifest-race",
+      "pass": "info",
+      "detail": "opened CONCURRENT before manifest: 0 cards rendered, 9 checkpoints loaded later (does not self-heal; filed to Frontend)",
       "evidence": null
     },
     {
@@ -97,6 +193,18 @@
       "name": "mobile.no-horizontal-overflow",
       "pass": true,
       "detail": "scrollW=390 clientW=390",
+      "evidence": null
+    },
+    {
+      "name": "models.mobile-readable",
+      "pass": true,
+      "detail": "9 cards, widest 362px <= viewport 390px, overflow 0px",
+      "evidence": null
+    },
+    {
+      "name": "concurrent.mobile-no-horizontal-overflow",
+      "pass": true,
+      "detail": "9 cards, grid cols=176px 176px, status 10px, overflow 0px",
       "evidence": null
     },
     {
@@ -179,6 +287,70 @@
       "pass": true
     },
     {
+      "name": "yellow on panel (score-value)",
+      "fg": "#ffd23f",
+      "bg": "#101024",
+      "ratio": 12.97,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "green on panel (cleared)",
+      "fg": "#4dff88",
+      "bg": "#101024",
+      "ratio": 14.24,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "red on panel (detonated)",
+      "fg": "#ff4d5e",
+      "bg": "#101024",
+      "ratio": 5.77,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "cyan on panel (cc-id/family)",
+      "fg": "#22e0ff",
+      "bg": "#101024",
+      "ratio": 11.75,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "ink on panel (cc-points/model rows)",
+      "fg": "#e6e9ff",
+      "bg": "#101024",
+      "ratio": 15.57,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "muted on panel (model labels/status)",
+      "fg": "#8b8fc4",
+      "bg": "#101024",
+      "ratio": 6.08,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "muted on panel-2 (leader stat)",
+      "fg": "#8b8fc4",
+      "bg": "#171733",
+      "ratio": 5.65,
+      "min": 4.5,
+      "pass": true
+    },
+    {
+      "name": "ink on panel-2 (leader name)",
+      "fg": "#e6e9ff",
+      "bg": "#171733",
+      "ratio": 14.47,
+      "min": 4.5,
+      "pass": true
+    },
+    {
       "name": "number n1 on revealed",
       "fg": "#4aa3ff",
       "bg": "#0c0c1e",
@@ -256,9 +428,9 @@
     ],
     "gridRole": "grid",
     "gridLabel": "Play board",
-    "tabCount": 3,
+    "tabCount": 5,
     "firstCellTab": "0",
-    "liveRegions": 4
+    "liveRegions": 5
   },
   "keyboard": {
     "before": "cell A1, hidden",
@@ -284,14 +456,361 @@
   "checkpoints": [
     "m0",
     "m1",
-    "m2"
+    "m2",
+    "m3",
+    "m4",
+    "m5",
+    "m6",
+    "m7",
+    "m8"
   ],
   "race": {
-    "humanHud": "READY · 10 mines · 0 moves · 00:03",
-    "aiHud": "PLAYING · 10 mines · 10 moves · 00:03",
+    "humanHud": "READY · 10 mines · 0 moves · 00:00",
+    "aiHud": "READY · 10 mines · 0 moves · 00:00",
     "result": "",
     "humanCells": 64,
     "aiCells": 64
+  },
+  "manifest": {
+    "version": 2,
+    "checkpoints": [
+      "m0",
+      "m1",
+      "m2",
+      "m3",
+      "m4",
+      "m5",
+      "m6",
+      "m7",
+      "m8"
+    ]
+  },
+  "models": {
+    "count": 9,
+    "note": "Manifest v2 · 9 checkpoints",
+    "panelHidden": false,
+    "role": "tabpanel",
+    "labelledby": "tab-models",
+    "listRole": "list",
+    "listItems": 9,
+    "entries": [
+      {
+        "id": "m0",
+        "label": "M0 · Uniform baseline",
+        "family": "baseline",
+        "desc": "Zero-weight baseline: masked argmax collapses to the lowest-index legal cell, so it sweeps the grid blindly and detonates almost immediately. Defines the floor the trained variants must beat.",
+        "rows": {
+          "Family": "baseline",
+          "Method": "Uniform (zero logits)",
+          "Architecture": "width 32 · 4 layers · 16,193 params",
+          "Training": "0 games · 0 epochs · lr 0 · target uniform (no training)",
+          "File size": "64.8 KB",
+          "Eval": "win 0.0% · mine-hit 100.0% · stuck 0.0% · avg safe 20.4"
+        },
+        "current": false
+      },
+      {
+        "id": "m1",
+        "label": "M1 · Basic-rule imitation",
+        "family": "solver-imitation",
+        "desc": "Behaviour cloning of the deterministic solver using only the basic number rules (rem==0 / rem==len), no subset reasoning. Small width-32 net on a short schedule; the cheap weak-target floor that still guesses on hard frontiers.",
+        "rows": {
+          "Family": "solver-imitation",
+          "Method": "Behaviour cloning (basic solver)",
+          "Architecture": "width 32 · 4 layers · 16,225 params",
+          "Training": "2,000 games · 16 epochs · lr 0.002 · target basic-solver",
+          "File size": "64.9 KB",
+          "Eval": "win 28.8% · mine-hit 71.2% · stuck 0.0% · avg safe 37.9"
+        },
+        "current": false
+      },
+      {
+        "id": "m2",
+        "label": "M2 · Subset-solver imitation",
+        "family": "solver-imitation",
+        "desc": "Same cloning recipe as M1 but the demonstrations come from the solver with 1-level subset inference, so the target is stronger. Width raised to 48 to absorb the harder target; the workhorse mid-tier model and the warm-start for the two RL variants.",
+        "rows": {
+          "Family": "solver-imitation",
+          "Method": "Behaviour cloning (subset solver)",
+          "Architecture": "width 48 · 4 layers · 31,233 params",
+          "Training": "3,000 games · 16 epochs · lr 0.002 · target subset-solver",
+          "File size": "123.5 KB",
+          "Eval": "win 56.4% · mine-hit 43.6% · stuck 0.0% · avg safe 46.8"
+        },
+        "current": false
+      },
+      {
+        "id": "m3",
+        "label": "M3 · Wide + deep imitation",
+        "family": "solver-imitation",
+        "desc": "Capacity axis push: the same subset-solver target, but width 64 with an extra conv layer. Highest-parameter imitator, so it needs fewer epochs than M2 to converge; the reference to beat in CONCURRENT.",
+        "rows": {
+          "Family": "solver-imitation",
+          "Method": "Behaviour cloning (subset solver, high capacity)",
+          "Architecture": "width 64 · 5 layers · 87,777 params",
+          "Training": "3,000 games · 8 epochs · lr 0.0015 · target subset-solver",
+          "File size": "344.7 KB",
+          "Eval": "win 61.4% · mine-hit 38.6% · stuck 0.0% · avg safe 46.9"
+        },
+        "current": false
+      },
+      {
+        "id": "m4",
+        "label": "M4 · Long-trained small imitation",
+        "family": "solver-imitation",
+        "desc": "Training-amount axis: identical width-32 architecture and basic-solver target as M1, but more demonstration games and a longer schedule. Isolates how far more data/optimisation steps help a small net on a weak target.",
+        "rows": {
+          "Family": "solver-imitation",
+          "Method": "Behaviour cloning (basic solver, long schedule)",
+          "Architecture": "width 32 · 4 layers · 16,225 params",
+          "Training": "3,000 games · 24 epochs · lr 0.002 · target basic-solver",
+          "File size": "64.9 KB",
+          "Eval": "win 36.0% · mine-hit 64.0% · stuck 0.0% · avg safe 38.8"
+        },
+        "current": false
+      },
+      {
+        "id": "m5",
+        "label": "M5 · Self-play (win reward)",
+        "family": "rl",
+        "desc": "Different objective: warm-started from M2 then optimised by REINFORCE on its own games, rewarded for each newly revealed safe cell plus a win bonus. Learns to chase clears directly instead of copying the solver.",
+        "rows": {
+          "Family": "rl",
+          "Method": "REINFORCE fine-tune from M2",
+          "Architecture": "width 48 · 4 layers · 31,233 params",
+          "Training": "2,560 games · 10 epochs · lr 0.0003 · target self-play: +1/safe-reveal, +10 win, -10 mine",
+          "File size": "123.5 KB",
+          "Eval": "win 57.4% · mine-hit 42.6% · stuck 0.0% · avg safe 46.6"
+        },
+        "current": false
+      },
+      {
+        "id": "m6",
+        "label": "M6 · Self-play (detonation-averse)",
+        "family": "rl",
+        "desc": "Second RL objective: same REINFORCE loop as M5 but a heavy detonation penalty. Trades some clears for caution, so its win/mine-hit profile differs from M5 and the imitators.",
+        "rows": {
+          "Family": "rl",
+          "Method": "REINFORCE fine-tune from M2, safety-shaped reward",
+          "Architecture": "width 48 · 4 layers · 31,233 params",
+          "Training": "2,560 games · 10 epochs · lr 0.0003 · target self-play: +1/safe-reveal, +10 win, -40 mine",
+          "File size": "123.5 KB",
+          "Eval": "win 57.8% · mine-hit 42.2% · stuck 0.0% · avg safe 46.5"
+        },
+        "current": false
+      },
+      {
+        "id": "m7",
+        "label": "M7 · Wide-kernel ablation (5x5)",
+        "family": "ablation",
+        "desc": "Architecture ablation: 5x5 kernels give every cell a two-cell receptive field instead of the one-cell 3x3 used by the other imitators, at the same width/depth as M2 (fewer games/epochs to stay in budget). Tests whether extra spatial context helps or hurts.",
+        "rows": {
+          "Family": "ablation",
+          "Method": "Behaviour cloning (subset solver, 5x5 kernels)",
+          "Architecture": "width 48 · 4 layers · 86,529 params",
+          "Training": "2,500 games · 8 epochs · lr 0.002 · target subset-solver",
+          "File size": "339.5 KB",
+          "Eval": "win 51.0% · mine-hit 49.0% · stuck 0.0% · avg safe 45.1"
+        },
+        "current": false
+      },
+      {
+        "id": "m8",
+        "label": "M8 · Shallow ablation (single conv)",
+        "family": "ablation",
+        "desc": "Depth ablation: only one 3x3 feature-extraction conv before the 1x1 head, versus three in M2/M3. Same target and data as M2, so any gap is due to depth rather than target quality.",
+        "rows": {
+          "Family": "ablation",
+          "Method": "Behaviour cloning (subset solver, 1 hidden conv)",
+          "Architecture": "width 48 · 3 layers · 10,449 params",
+          "Training": "3,000 games · 16 epochs · lr 0.002 · target subset-solver",
+          "File size": "42.0 KB",
+          "Eval": "win 11.8% · mine-hit 88.2% · stuck 0.0% · avg safe 35.8"
+        },
+        "current": true
+      }
+    ]
+  },
+  "concurrentBuilt": {
+    "cards": 9,
+    "boards": 9,
+    "cells": 576,
+    "statuses": [
+      "READY",
+      "READY",
+      "READY",
+      "READY",
+      "READY",
+      "READY",
+      "READY",
+      "READY",
+      "READY"
+    ],
+    "total": "0"
+  },
+  "concurrentStep": {
+    "stepA": {
+      "stats": [
+        "2 moves · 14 pts",
+        "5 moves · 18 pts",
+        "5 moves · 18 pts",
+        "5 moves · 27 pts",
+        "4 moves · 16 pts",
+        "5 moves · 27 pts",
+        "5 moves · 27 pts",
+        "5 moves · 27 pts",
+        "4 moves · 25 pts"
+      ],
+      "total": "199"
+    },
+    "stepB": {
+      "stats": [
+        "2 moves · 14 pts",
+        "10 moves · 22 pts",
+        "13 moves · 31 pts",
+        "13 moves · 35 pts",
+        "4 moves · 16 pts",
+        "13 moves · 35 pts",
+        "13 moves · 35 pts",
+        "13 moves · 35 pts",
+        "4 moves · 25 pts"
+      ],
+      "total": "248"
+    }
+  },
+  "concurrent": {
+    "per": [
+      {
+        "id": "m0",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "2 moves · 14 pts",
+        "points": 14,
+        "aria": "M0 · Uniform baseline: DETONATED, 2 moves, 14 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m1",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "10 moves · 22 pts",
+        "points": 22,
+        "aria": "M1 · Basic-rule imitation: DETONATED, 10 moves, 22 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m2",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "17 moves · 34 pts",
+        "points": 34,
+        "aria": "M2 · Subset-solver imitation: DETONATED, 17 moves, 34 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m3",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "20 moves · 47 pts",
+        "points": 47,
+        "aria": "M3 · Wide + deep imitation: DETONATED, 20 moves, 47 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m4",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "4 moves · 16 pts",
+        "points": 16,
+        "aria": "M4 · Long-trained small imitation: DETONATED, 4 moves, 16 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m5",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "17 moves · 41 pts",
+        "points": 41,
+        "aria": "M5 · Self-play (win reward): DETONATED, 17 moves, 41 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m6",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "21 moves · 47 pts",
+        "points": 47,
+        "aria": "M6 · Self-play (detonation-averse): DETONATED, 21 moves, 47 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m7",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "19 moves · 45 pts",
+        "points": 45,
+        "aria": "M7 · Wide-kernel ablation (5x5): DETONATED, 19 moves, 45 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      },
+      {
+        "id": "m8",
+        "status": "DETONATED",
+        "datasetStatus": "detonated",
+        "stats": "4 moves · 25 pts",
+        "points": 25,
+        "aria": "M8 · Shallow ablation (single conv): DETONATED, 4 moves, 25 points",
+        "statusColor": "rgb(255, 77, 94)",
+        "statusFont": "10px"
+      }
+    ],
+    "counts": {
+      "cleared": 0,
+      "detonated": 9,
+      "stuck": 0
+    },
+    "total": 291,
+    "totalText": "291",
+    "totalFont": "40px",
+    "totalColor": "rgb(255, 210, 63)",
+    "sumPoints": 291,
+    "leaderRows": 9,
+    "leaderStats": [
+      "DETONATED · 47 pts",
+      "DETONATED · 47 pts",
+      "DETONATED · 45 pts",
+      "DETONATED · 41 pts",
+      "DETONATED · 34 pts",
+      "DETONATED · 25 pts",
+      "DETONATED · 22 pts",
+      "DETONATED · 16 pts",
+      "DETONATED · 14 pts"
+    ],
+    "live": "All models finished: 0 cleared, 9 detonated, 0 stuck. Total 291 points.",
+    "overflow": 0
+  },
+  "concurrentDeterminism": {
+    "seed": 4242,
+    "a": {
+      "total": "593",
+      "per": "m0:detonated:22|m1:detonated:53|m2:cleared:104|m3:cleared:104|m4:detonated:52|m5:detonated:52|m6:cleared:104|m7:detonated:52|m8:detonated:50"
+    },
+    "b": {
+      "total": "593",
+      "per": "m0:detonated:22|m1:detonated:53|m2:cleared:104|m3:cleared:104|m4:detonated:52|m5:detonated:52|m6:cleared:104|m7:detonated:52|m8:detonated:50"
+    },
+    "deterministic": true
+  },
+  "concurrentRace": {
+    "cards": 0,
+    "checkpointsLoaded": 9
   },
   "desktopErrors": {
     "console": [],
@@ -315,6 +834,20 @@
       "warnings": []
     }
   },
+  "mobileModels": {
+    "count": 9,
+    "vw": 390,
+    "widest": 362,
+    "overflow": 0,
+    "descFont": "11px"
+  },
+  "mobileConcurrent": {
+    "cards": 9,
+    "cols": "176px 176px",
+    "statusFont": "10px",
+    "totalFont": "27.3px",
+    "overflow": 0
+  },
   "reducedMotion": {
     "selectedAnim": "none",
     "detonateAnim": "none"
@@ -324,5 +857,5 @@
     "pageErrors": [],
     "requestFailed": []
   },
-  "endedAt": "2026-10-15T20:19:48.734Z"
+  "endedAt": "2026-10-16T01:20:04.385Z"
 }

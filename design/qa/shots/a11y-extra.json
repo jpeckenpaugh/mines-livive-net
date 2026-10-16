@@ -5,8 +5,8 @@
     "revealed": 31
   },
   "afterFlag": {
-    "flags": "0",
-    "flagged": 0
+    "flags": "1",
+    "flagged": 1
   },
   "tabAfterArrowRight": {
     "activeMode": "ai",
@@ -33,6 +33,20 @@
       "controls": "panel-race",
       "selected": "false",
       "tabindex": "-1"
+    },
+    {
+      "mode": "concurrent",
+      "role": "tab",
+      "controls": "panel-concurrent",
+      "selected": "false",
+      "tabindex": "-1"
+    },
+    {
+      "mode": "models",
+      "role": "tab",
+      "controls": "panel-models",
+      "selected": "false",
+      "tabindex": "-1"
     }
   ],
   "panels": [
@@ -53,6 +67,18 @@
       "role": "tabpanel",
       "id": "panel-race",
       "labelledby": "tab-race"
+    },
+    {
+      "panel": "concurrent",
+      "role": "tabpanel",
+      "id": "panel-concurrent",
+      "labelledby": "tab-concurrent"
+    },
+    {
+      "panel": "models",
+      "role": "tabpanel",
+      "id": "panel-models",
+      "labelledby": "tab-models"
     }
   ],
   "grid": {
@@ -88,9 +114,44 @@
       "cls": "race-result",
       "live": "polite",
       "containsClock": false
+    },
+    {
+      "tag": "P",
+      "cls": "sr-only",
+      "live": "polite",
+      "containsClock": false
     }
   ],
   "clockMutatePerSec": 0,
+  "models": {
+    "cards": 9,
+    "listRole": "list",
+    "listItems": 9,
+    "current": 1,
+    "descFont": "11px",
+    "smallestFont": 10
+  },
+  "concurrent": {
+    "cards": 9,
+    "focusableCells": 0,
+    "live": "polite",
+    "statusFont": "10px"
+  },
+  "concurrentLiveMutatePerSec": 0,
+  "touch": {
+    "tab": {
+      "w": 72,
+      "h": 30
+    },
+    "concurrentStart": {
+      "w": 110,
+      "h": 31
+    },
+    "concurrentReset": {
+      "w": 78,
+      "h": 31
+    }
+  },
   "colorScheme": "dark",
   "themeColor": "#0a0a14",
   "viewport": "width=device-width, initial-scale=1, viewport-fit=cover",
