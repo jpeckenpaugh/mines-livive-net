@@ -437,8 +437,10 @@ async function main() {
     });
   }
 
+  await page.waitForFunction(() => document.querySelectorAll('#checkpoint option').length >= 9, { timeout: 15000 }).catch(() => {});
   await page.click('.tab[data-mode="concurrent"]');
   await waitConcurrentReady(page);
+  await page.waitForFunction(() => document.querySelectorAll('#concurrent-grid .concurrent-card').length >= 9, { timeout: 15000 }).catch(() => {});
   await setFastSpeed(page);
 
   const concBuilt = await page.evaluate(() => ({
@@ -553,8 +555,12 @@ async function main() {
   async function concurrentOutcome(seed) {
     const c = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const p = await newPage(c, { console: [], pageErrors: [], requestFailed: [], warnings: [] }, { seed });
+    // Wait for the manifest before opening CONCURRENT; otherwise the field can
+    // cache empty (see concurrent.pre-manifest-race below).
+    await p.waitForFunction(() => document.querySelectorAll('#checkpoint option').length >= 9, { timeout: 15000 }).catch(() => {});
     await p.click('.tab[data-mode="concurrent"]');
     await waitConcurrentReady(p);
+    await p.waitForFunction(() => document.querySelectorAll('#concurrent-grid .concurrent-card').length >= 9, { timeout: 15000 }).catch(() => {});
     await setFastSpeed(p);
     await p.click('#concurrent-start');
     await p
@@ -582,6 +588,32 @@ async function main() {
     deterministic,
     deterministic ? `seed=4242 reproducible: ${detA.per}` : 'seed=4242 outcome differed between runs',
   );
+
+  // Known pre-manifest race (filed to Frontend): opening CONCURRENT before the
+  // manifest resolves caches an empty field that does not self-heal. Recorded
+  // as evidence (info), not a hard gate.
+  {
+    const rc = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const rp = await rc.newPage();
+    await rp.route('**/models/manifest.json', async (route) => {
+      await new Promise((r) => setTimeout(r, 3000));
+      await route.continue();
+    });
+    await rp.goto(`${BASE}/?seed=4242`, { waitUntil: 'domcontentloaded' });
+    await rp.click('.tab[data-mode="concurrent"]');
+    await rp.waitForTimeout(4500);
+    const race = await rp.evaluate(() => ({
+      cards: document.querySelectorAll('#concurrent-grid .concurrent-card').length,
+      checkpointsLoaded: document.querySelectorAll('#checkpoint option').length,
+    }));
+    report.concurrentRace = race;
+    rec(
+      'concurrent.pre-manifest-race',
+      null,
+      `opened CONCURRENT before manifest: ${race.cards} cards rendered, ${race.checkpointsLoaded} checkpoints loaded later (does not self-heal; filed to Frontend)`,
+    );
+    await rc.close();
+  }
 
   report.desktopErrors = bag;
 
