@@ -685,6 +685,15 @@ async function loadConcurrentPolicy(model, gen) {
 }
 
 function buildConcurrent() {
+  // The field is derived from the manifest, so it cannot be built until the
+  // contract has resolved. If CONCURRENT is opened before the manifest lands
+  // (slow connection / fast tap) do not cache an empty field: boot() rebuilds
+  // us as soon as the checkpoints are known.
+  if (!state.contract) {
+    concurrent.built = false;
+    return;
+  }
+
   const host = $('concurrent-grid');
   host.replaceChildren();
   concurrent.models = [];
@@ -780,6 +789,9 @@ function resetConcurrent() {
 
 function startConcurrent() {
   if (!concurrent.built) buildConcurrent();
+  // Manifest still resolving: there is nothing to run yet. Returning here keeps
+  // START from finishing an empty field with "0 cleared, 0 detonated, 0 stuck".
+  if (!concurrent.built) return;
   if (concurrent.running) {
     pauseConcurrent();
     return;
@@ -1162,6 +1174,11 @@ async function boot() {
   state.contract = await resolveContract();
   setBackendBadge(false, state.contract.real);
   populateCheckpoints();
+
+  // If CONCURRENT was opened before the manifest resolved, build the field now
+  // that the checkpoints are known. Build before awaiting the policy load below
+  // so the grid is never left empty waiting on an ONNX session.
+  if (state.mode === 'concurrent' && !concurrent.built) buildConcurrent();
 
   await selectCheckpoint(state.checkpointId);
   applyToggles();

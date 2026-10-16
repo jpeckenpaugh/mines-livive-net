@@ -218,7 +218,9 @@ input[type='number'] {
 }
 
 select {
-  max-width: 220px;
+  /* Wide enough for the longest checkpoint label ("M8 · Shallow ablation
+     (single conv)") so the closed control never truncates the selection. */
+  max-width: 340px;
 }
 
 input[type='number']:focus,
@@ -1084,6 +1086,20 @@ input[type='range'] {
   input[type='number'] {
     width: 100%;
     min-width: 0;
+  }
+
+  /* The wide ONNX badge otherwise squeezes the checkpoint select down to a few
+     characters. Stack the label above the select and give it the full row so
+     the longest label is readable in the closed control; the badge wraps below. */
+  .field-checkpoint {
+    flex: 1 1 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .field-checkpoint select {
+    width: 100%;
+    flex: none;
   }
 
   .race-grid {
