@@ -70,6 +70,24 @@ const ratio = (a, b) => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
+// Width of the checkpoint <select>'s selected label vs. the control's inner
+// width — detects truncation of the label in the closed control (AIA-25 P3).
+async function checkpointSelectFit(page) {
+  return page.evaluate(() => {
+    const sel = document.getElementById('checkpoint');
+    const cs = getComputedStyle(sel);
+    const opt = sel.options[sel.selectedIndex];
+    const probe = document.createElement('span');
+    probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${cs.font}`;
+    probe.textContent = opt.textContent;
+    document.body.appendChild(probe);
+    const textW = probe.getBoundingClientRect().width;
+    probe.remove();
+    const inner = sel.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    return { label: opt.textContent, textW: Math.round(textW), inner: Math.round(inner), fits: textW <= inner };
+  });
+}
+
 async function main() {
   const browser = await chromium.launch();
 
@@ -291,6 +309,16 @@ async function main() {
     if (st.action === '—') ckptOk = false;
   }
   rec('ai.checkpoint-selector', ckptOk, JSON.stringify(ckptDetail));
+
+  // AIA-25 P3: the closed checkpoint control must show the full selected label
+  // (the loop above leaves the longest one, m8, selected).
+  const selDesktop = await checkpointSelectFit(page);
+  report.checkpointSelectDesktop = selDesktop;
+  rec(
+    'checkpoint.select-label-fits-desktop',
+    selDesktop.fits,
+    `${selDesktop.label} text ${selDesktop.textW}px <= inner ${selDesktop.inner}px`,
+  );
 
   // ---------- Race mode ----------
   await page.click('.tab[data-mode="race"]');
@@ -589,9 +617,10 @@ async function main() {
     deterministic ? `seed=4242 reproducible: ${detA.per}` : 'seed=4242 outcome differed between runs',
   );
 
-  // Known pre-manifest race (filed to Frontend): opening CONCURRENT before the
-  // manifest resolves caches an empty field that does not self-heal. Recorded
-  // as evidence (info), not a hard gate.
+  // AIA-25 P2 regression gate: opening CONCURRENT before the manifest resolves
+  // must not cache an empty field. The field self-heals when the contract lands
+  // (boot builds it right after populateCheckpoints), so 9 cards must render
+  // even though the manifest is delayed 3s and CONCURRENT is tapped immediately.
   {
     const rc = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const rp = await rc.newPage();
@@ -607,10 +636,11 @@ async function main() {
       checkpointsLoaded: document.querySelectorAll('#checkpoint option').length,
     }));
     report.concurrentRace = race;
+    const healed = race.cards >= 9 && race.checkpointsLoaded >= 9;
     rec(
       'concurrent.pre-manifest-race',
-      null,
-      `opened CONCURRENT before manifest: ${race.cards} cards rendered, ${race.checkpointsLoaded} checkpoints loaded later (does not self-heal; filed to Frontend)`,
+      healed,
+      `opened CONCURRENT before manifest: ${race.cards} cards rendered, ${race.checkpointsLoaded} checkpoints loaded later (self-heals)`,
     );
     await rc.close();
   }
@@ -654,6 +684,18 @@ async function main() {
   }));
   report.mobile = { tap: mAfter, overflow: mOverflow, errors: mbag };
   rec('mobile.no-horizontal-overflow', mOverflow.scrollW <= mOverflow.clientW + 2, `scrollW=${mOverflow.scrollW} clientW=${mOverflow.clientW}`);
+
+  // AIA-25 P3: on mobile the badge shares the row, so the longest label (m8)
+  // must still be fully readable in the closed checkpoint control.
+  await mp.selectOption('#checkpoint', 'm8');
+  await mp.waitForTimeout(250);
+  const selMobile = await checkpointSelectFit(mp);
+  report.checkpointSelectMobile = selMobile;
+  rec(
+    'checkpoint.select-label-fits-mobile',
+    selMobile.fits,
+    `${selMobile.label} text ${selMobile.textW}px <= inner ${selMobile.inner}px`,
+  );
 
   // ---------- mobile: MODELS panel (readable at 390x844) ----------
   await mp.click('.tab[data-mode="models"]');
